@@ -978,6 +978,23 @@ button.active {
 .legend-disclosure .legend-grid {
   margin-top: 0;
   padding: 0 12px 12px;
+  max-height: min(34vh, 320px);
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb-start) var(--scroll-track);
+}
+
+.legend-disclosure .legend-grid::-webkit-scrollbar {
+  width: 10px;
+}
+
+.legend-disclosure .legend-grid::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+.legend-disclosure .legend-grid::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--scroll-thumb-start), var(--scroll-thumb-end));
+  border: 1px solid var(--border-strong);
 }
 
 .legend-grid {
