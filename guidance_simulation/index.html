@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Güdüm Angajman Simülatörü</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero-bar">
+      <div class="hero-copy-block">
+        <p class="eyebrow">2D Güdüm Kanunu Deney Ortamı</p>
+        <h1>Güdüm Angajman Simülatörü</h1>
+      </div>
+      <div class="hero-status">
+        <div class="status-pill" id="statusBadge">Hazır</div>
+        <p id="statusMessage">Demo senaryosu açılışta otomatik olarak çalıştırılacaktır.</p>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="left-zone">
+        <section class="panel control-panel" id="controlPanel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Sol Kenar</p>
+              <h2>Simülasyon Parametreleri</h2>
+            </div>
+            <p class="panel-note">Açı girişleri derece, iç hesaplar radyan cinsindedir.</p>
+          </div>
+
+          <div class="control-grid">
+            <label class="control-field">
+              <span>Füze başlangıç x [m]</span>
+              <input data-param="missileX" type="number" step="1">
+            </label>
+            <label class="control-field">
+              <span>Füze başlangıç z [m]</span>
+              <input data-param="missileZ" type="number" step="1">
+            </label>
+            <label class="control-field">
+              <span>Füze hız büyüklüğü [m/s]</span>
+              <input data-param="missileSpeed" type="number" step="1" min="1">
+            </label>
+            <label class="control-field">
+              <span>Füze gamma [deg]</span>
+              <input data-param="missileGammaDeg" type="number" step="0.1">
+            </label>
+            <label class="control-field">
+              <span>Hedef başlangıç x [m]</span>
+              <input data-param="targetX" type="number" step="1">
+            </label>
+            <label class="control-field">
+              <span>Hedef başlangıç z [m]</span>
+              <input data-param="targetZ" type="number" step="1">
+            </label>
+            <label class="control-field">
+              <span>Hedef hız büyüklüğü [m/s]</span>
+              <input data-param="targetSpeed" type="number" step="1" min="1">
+            </label>
+            <label class="control-field">
+              <span>Hedef uçuş açısı [deg]</span>
+              <input data-param="targetGammaDeg" type="number" step="0.1">
+            </label>
+            <label class="control-field">
+              <span>Adım dt [s]</span>
+              <input data-param="dt" type="number" step="0.001" min="0.001">
+            </label>
+            <label class="control-field">
+              <span>Maks. süre [s]</span>
+              <input data-param="tMax" type="number" step="0.5" min="0.1">
+            </label>
+            <label class="control-field">
+              <span>Önleme yarıçapı [m]</span>
+              <input data-param="interceptRadius" type="number" step="0.5" min="0.1">
+            </label>
+            <label class="control-field">
+              <span>Azami ivme [m/s²]</span>
+              <input data-param="maxAccel" type="number" step="1" min="1">
+            </label>
+            <label class="control-field">
+              <span>Füze hız modeli</span>
+              <select data-param="speedModel">
+                <option value="constant">Sabit hız</option>
+                <option value="energy">Basit enerji modeli</option>
+              </select>
+            </label>
+            <label class="control-field">
+              <span>Çıktı modu</span>
+              <select data-param="outputMode">
+                <option value="az_demand">az_demand</option>
+                <option value="gamma_demand">gamma_demand</option>
+              </select>
+            </label>
+            <label class="control-field">
+              <span>N</span>
+              <input data-param="N" type="number" step="0.1">
+            </label>
+            <label class="control-field">
+              <span>k1</span>
+              <input data-param="k1" type="number" step="0.01">
+            </label>
+            <label class="control-field">
+              <span>k2</span>
+              <input data-param="k2" type="number" step="0.01">
+            </label>
+            <label class="control-field">
+              <span>Gamma takip zamanı [s]</span>
+              <input data-param="gammaTau" type="number" step="0.05" min="0.05">
+            </label>
+            <label class="control-field checkbox-field">
+              <input data-param="showLos" type="checkbox">
+              <span>LOS çizgisi açık</span>
+            </label>
+            <label class="control-field checkbox-field">
+              <input data-param="traceEnabled" type="checkbox">
+              <span>İz bırakma açık</span>
+            </label>
+          </div>
+
+          <div class="action-row">
+            <button id="startBtn" class="primary">Başlat</button>
+            <button id="stopBtn">Durdur</button>
+            <button id="resetBtn">Sıfırla</button>
+            <button id="stepBtn">Tek Adım</button>
+            <button id="loadDemoBtn">Örnek Senaryo Yükle</button>
+          </div>
+        </section>
+
+        <section class="panel editor-shell">
+          <aside class="algorithm-menu" id="algorithmMenu">
+            <div class="algorithm-menu-head">
+              <p class="section-kicker">Orta Sol</p>
+              <h2>Örnek Algoritmalar</h2>
+            </div>
+            <div class="algorithm-buttons" id="algorithmButtons"></div>
+          </aside>
+
+          <section class="editor-panel" id="editorPanel">
+            <div class="panel-heading">
+              <div>
+                <p class="section-kicker">Orta Panel</p>
+                <h2>Güdüm Formülü Editörü</h2>
+              </div>
+              <div class="mode-chip" id="activeModeChip">Çıktı modu: az_demand</div>
+            </div>
+
+            <div class="example-card">
+              <h3 id="exampleTitle">PNG</h3>
+              <p id="exampleDescription"></p>
+            </div>
+
+            <label class="editor-label" for="guidanceExpression">Matematiksel ifade</label>
+            <textarea id="guidanceExpression" spellcheck="false"></textarea>
+
+            <div class="formula-status" id="formulaStatus">
+              Formül hazır. Sadece izin verilen değişkenler ve fonksiyonlar kullanılabilir.
+            </div>
+
+            <div class="legend-block">
+              <h3>Kullanılabilir değişkenler</h3>
+              <div class="legend-grid" id="variableLegend"></div>
+            </div>
+
+            <div class="legend-block">
+              <h3>İzinli matematik fonksiyonları</h3>
+              <div class="function-tags" id="functionLegend"></div>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <section class="right-zone">
+        <section class="panel scene-panel" id="scenePanel">
+          <div class="scene-head">
+            <div>
+              <p class="section-kicker">Sağ Panel</p>
+              <h2>2D Angajman ve Yörünge</h2>
+            </div>
+            <div class="scene-controls">
+              <button id="sceneStartBtn" class="primary">Başlat</button>
+              <button id="scenePauseBtn">Durdur</button>
+              <button id="sceneResumeBtn">Devam Et</button>
+              <button id="sceneRestartBtn">Baştan Oynat</button>
+            </div>
+          </div>
+
+          <div class="scene-layout">
+            <div class="canvas-wrap">
+              <canvas id="sceneCanvas" width="960" height="560"></canvas>
+              <div class="canvas-hint">Mouse tekeri ile yakınlaştırın, sürükleyerek pan yapın. Çift tık görünümü yeniden ölçekler.</div>
+            </div>
+
+            <aside class="telemetry-card">
+              <h3>Anlık Telemetri</h3>
+              <dl class="telemetry-grid">
+                <div><dt>Zaman</dt><dd id="telemetryTime">0.00 s</dd></div>
+                <div><dt>R</dt><dd id="telemetryRange">0.0 m</dd></div>
+                <div><dt>lambda</dt><dd id="telemetryLambda">0.0 deg</dd></div>
+                <div><dt>lambda_dot</dt><dd id="telemetryLambdaDot">0.0 deg/s</dd></div>
+                <div><dt>V_m</dt><dd id="telemetrySpeed">0.0 m/s</dd></div>
+                <div><dt>gamma_m</dt><dd id="telemetryGamma">0.0 deg</dd></div>
+                <div><dt>az_cmd</dt><dd id="telemetryAz">0.0 m/s²</dd></div>
+                <div><dt>Durum</dt><dd id="telemetryStatus">Hazır</dd></div>
+              </dl>
+              <div class="telemetry-note" id="sceneSummary">
+                Tam yörünge simülasyon başlatıldığında burada özetlenir.
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="panel plots-panel" id="plotsPanel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Sağ Alt</p>
+              <h2>Zaman Grafikleri</h2>
+            </div>
+            <p class="panel-note">İstediğiniz zaman serilerini açıp kapatabilirsiniz.</p>
+          </div>
+
+          <div class="plot-toggle-row" id="plotToggles"></div>
+          <div class="plots-grid" id="plotsGrid"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    window.GuidanceSim = window.GuidanceSim || {};
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script defer src="./sim/integrator.js"></script>
+  <script defer src="./sim/missileModel.js"></script>
+  <script defer src="./sim/targetModel.js"></script>
+  <script defer src="./sim/geometry.js"></script>
+  <script defer src="./sim/guidanceEngine.js"></script>
+  <script defer src="./examples/guidanceExamples.js"></script>
+  <script defer src="./ui/controlPanel.js"></script>
+  <script defer src="./ui/editorPanel.js"></script>
+  <script defer src="./ui/plots.js"></script>
+  <script defer src="./ui/scene2d.js"></script>
+  <script defer src="./app.js"></script>
+</body>
+</html>
