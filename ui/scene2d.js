@@ -57,11 +57,17 @@
         maxTrailPoints: 1400,
         telemetryIntervalMs: 80,
       };
+      this.pendingResizeFrame = null;
 
-      const observerTarget = this.canvas.parentElement;
-      if (window.ResizeObserver && observerTarget) {
+      if (window.ResizeObserver) {
         this.resizeObserver = new ResizeObserver(() => this.handleResize());
-        this.resizeObserver.observe(observerTarget);
+        this.resizeObserver.observe(this.canvas);
+        if (this.canvas.parentElement) {
+          this.resizeObserver.observe(this.canvas.parentElement);
+        }
+        if (this.root) {
+          this.resizeObserver.observe(this.root);
+        }
       } else {
         window.addEventListener("resize", () => this.handleResize());
       }
@@ -79,6 +85,18 @@
 
     setRunEnabled(isEnabled) {
       this.playButtons.start.disabled = !isEnabled;
+    }
+
+    isPlaying() {
+      return this.playing;
+    }
+
+    getPlaybackState() {
+      return {
+        playhead: this.playhead,
+        playbackClock: this.playbackClock,
+        playing: this.playing,
+      };
     }
 
     getPalette() {
@@ -104,6 +122,19 @@
 
     applyTheme() {
       this.render();
+    }
+
+    scheduleResize() {
+      if (this.pendingResizeFrame != null) {
+        window.cancelAnimationFrame(this.pendingResizeFrame);
+      }
+
+      this.pendingResizeFrame = window.requestAnimationFrame(() => {
+        this.pendingResizeFrame = window.requestAnimationFrame(() => {
+          this.pendingResizeFrame = null;
+          this.handleResize();
+        });
+      });
     }
 
     bindCanvasInteraction() {
@@ -159,9 +190,10 @@
 
     handleResize() {
       const dpr = window.devicePixelRatio || 1;
-      const rect = this.canvas.parentElement.getBoundingClientRect();
-      const width = Math.max(rect.width, 320);
-      const height = Math.max(rect.height, 380);
+      const canvasRect = this.canvas.getBoundingClientRect();
+      const fallbackRect = this.canvas.parentElement?.getBoundingClientRect?.() ?? canvasRect;
+      const width = Math.max(canvasRect.width || fallbackRect.width, 320);
+      const height = Math.max(canvasRect.height || fallbackRect.height, 240);
       this.canvas.width = Math.floor(width * dpr);
       this.canvas.height = Math.floor(height * dpr);
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -186,7 +218,33 @@
       if (this.summaryEl) {
         this.summaryEl.textContent = `${result.outcome.message} Toplam ${result.samples.length} örnek, bitiş zamanı ${formatNumber(result.stats.finalTime, 2)} s.`;
       }
+      this.scheduleResize();
       this.render();
+    }
+
+    replaceSimulation(result, options = {}, playbackState = {}) {
+      const nextFrames = result?.samples ?? [];
+      const requestedPlayhead = playbackState.playhead ?? this.playhead;
+      const nextPlayhead = nextFrames.length
+        ? Math.max(0, Math.min(requestedPlayhead, nextFrames.length - 1))
+        : 0;
+
+      this.result = result;
+      this.frames = nextFrames;
+      this.options = { ...this.options, ...options };
+      this.playhead = nextPlayhead;
+      this.playbackClock = playbackState.playbackClock ?? (nextFrames[nextPlayhead]?.t ?? 0);
+      this.lastAnimationTime = null;
+      this.lastTelemetryTime = 0;
+      this.playing = false;
+      this.updateResultStats(result);
+
+      this.scheduleResize();
+      this.render();
+
+      if (playbackState.playing && nextFrames.length > 0) {
+        this.play();
+      }
     }
 
     setViewOptions(options) {

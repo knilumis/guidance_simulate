@@ -12,7 +12,7 @@
     SettingsPanel,
   } = GuidanceSim.ui || {};
   const { createExpressionEvaluator, SUPPORTED_FUNCTIONS, SUPPORTED_VARIABLES } = GuidanceSim.guidanceEngine || {};
-  const { buildSimulationParams, runSimulation } = GuidanceSim.simulationCore || {};
+  const { buildSimulationParams, runSimulation, continueSimulationFromSample } = GuidanceSim.simulationCore || {};
 
   function bootstrap() {
     if (
@@ -27,6 +27,7 @@
       || !SettingsPanel
       || !buildSimulationParams
       || !runSimulation
+      || !continueSimulationFromSample
     ) {
       throw new Error("Gerekli script dosyalarından biri yüklenemedi.");
     }
@@ -176,6 +177,16 @@
       editorPanel.setMode(controlPanel.getValues().outputMode);
     }
 
+    function refreshSceneAndPlotsLayout() {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          layoutManager.ensureBounds();
+          scene.scheduleResize?.();
+          plotManager.resizeAll();
+        });
+      });
+    }
+
     function executeSimulation(options = {}) {
       const { autoplay = true, resetOnly = false } = options;
 
@@ -200,6 +211,7 @@
 
       scene.loadSimulation(result, rawValues);
       plotManager.update(result, rawValues);
+      refreshSceneAndPlotsLayout();
 
       controlPanel.setStatus(
         result.outcome.kind,
@@ -212,6 +224,49 @@
       } else if (autoplay) {
         scene.playFromStart();
       }
+
+      return true;
+    }
+
+    function continueSimulationFromCurrentState(options = {}) {
+      const { keepPlaying = false } = options;
+
+      if (!appState.simulationResult || !validateExpression()) {
+        return false;
+      }
+
+      const playbackState = scene.getPlaybackState();
+      const rawValues = {
+        ...controlPanel.getValues(),
+        ...appState.viewSettings,
+        themeId: appState.themeId,
+      };
+      const params = buildSimulationParams(rawValues);
+      const result = continueSimulationFromSample(
+        params,
+        appState.compiledExpression,
+        appState.simulationResult,
+        playbackState.playhead,
+      );
+
+      appState.simulationResult = result;
+      appState.lastSimulationRawValues = { ...rawValues };
+      appState.lastSimulationExpression = editorPanel.getExpression();
+      appState.lastSimulationExampleId = appState.activeExampleId;
+      appState.dirty = false;
+
+      scene.replaceSimulation(result, rawValues, {
+        ...playbackState,
+        playing: keepPlaying,
+      });
+      plotManager.update(result, rawValues);
+      refreshSceneAndPlotsLayout();
+
+      controlPanel.setStatus(
+        result.outcome.kind,
+        result.outcome.label,
+        `Formül güncellendi. ${result.outcome.message} Simülasyon ${result.stats.sampleCount} örnek ile tamamlandı.`,
+      );
 
       return true;
     }
@@ -229,6 +284,12 @@
         executeSimulation({ autoplay: true });
         return;
       }
+
+      if (appState.dirty) {
+        continueSimulationFromCurrentState({ keepPlaying: true });
+        return;
+      }
+
       scene.play();
     }
 
@@ -242,9 +303,16 @@
 
     function handleStep() {
       if (!appState.simulationResult || appState.dirty) {
-        const started = executeSimulation({ autoplay: false, resetOnly: true });
-        if (!started) {
-          return;
+        if (appState.simulationResult && appState.dirty) {
+          const continued = continueSimulationFromCurrentState({ keepPlaying: false });
+          if (!continued) {
+            return;
+          }
+        } else {
+          const started = executeSimulation({ autoplay: false, resetOnly: true });
+          if (!started) {
+            return;
+          }
         }
       }
       scene.step();
@@ -276,10 +344,12 @@
         appState.themeId = themeId;
         plotManager.applyTheme();
         scene.applyTheme();
+        refreshSceneAndPlotsLayout();
       },
       onViewChange: (viewSettings) => {
         appState.viewSettings = { ...appState.viewSettings, ...viewSettings };
         scene.setViewOptions(appState.viewSettings);
+        refreshSceneAndPlotsLayout();
       },
     });
 
@@ -289,6 +359,12 @@
       },
       onExpressionEdited: () => {
         validateExpression({ silent: true });
+        if (appState.isExpressionValid && appState.simulationResult && scene.isPlaying()) {
+          const continued = continueSimulationFromCurrentState({ keepPlaying: true });
+          if (continued) {
+            return;
+          }
+        }
         setDirty();
       },
     });
@@ -315,6 +391,7 @@
     scene.setViewOptions(appState.viewSettings);
     plotManager.applyTheme();
     scene.applyTheme();
+    refreshSceneAndPlotsLayout();
     controlPanel.setValues(cloneScenario(DEFAULT_SCENARIO));
     applyExample("PNG", { includeScenario: true });
     executeSimulation({ autoplay: true });

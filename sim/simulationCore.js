@@ -106,16 +106,102 @@
     };
   }
 
-  function createHistory(params, initialState) {
-    const referenceEnergy = 0.5 * initialState.missile.V * initialState.missile.V + params.sim.g * initialState.missile.z;
+  function createHistory(params, initialState, overrides = {}) {
+    const referenceEnergy = overrides.referenceEnergy
+      ?? (0.5 * params.missile.initialSpeed * params.missile.initialSpeed + params.sim.g * params.missile.initialZ);
 
     return {
-      samples: [],
+      samples: [...(overrides.samples ?? [])],
       referenceEnergy,
-      minMissDistance: Number.POSITIVE_INFINITY,
-      interceptTime: null,
-      peakAz: 0,
-      peakLambdaDot: 0,
+      minMissDistance: overrides.minMissDistance ?? Number.POSITIVE_INFINITY,
+      interceptTime: overrides.interceptTime ?? null,
+      peakAz: overrides.peakAz ?? 0,
+      peakLambdaDot: overrides.peakLambdaDot ?? 0,
+    };
+  }
+
+  function createControlFromSample(sample, fallbackGamma = 0) {
+    return {
+      formula_output: sample?.formula_output ?? 0,
+      gamma_cmd_raw: sample?.gamma_cmd ?? fallbackGamma,
+      gamma_cmd: sample?.gamma_cmd ?? fallbackGamma,
+      gamma_error: sample?.gamma_error ?? 0,
+      gamma_dot: sample?.gamma_dot ?? 0,
+      az_cmd: sample?.az_cmd ?? 0,
+      az_actual: sample?.az_actual ?? 0,
+    };
+  }
+
+  function createDerivedFromSample(sample) {
+    if (!sample) {
+      return null;
+    }
+
+    return {
+      sigma: sample.sigma,
+    };
+  }
+
+  function buildHistoryFromSamples(params, samples = []) {
+    const minMissDistance = samples.reduce(
+      (currentMin, sample) => Math.min(currentMin, sample.R),
+      Number.POSITIVE_INFINITY,
+    );
+    const peakAz = samples.reduce(
+      (currentPeak, sample) => Math.max(currentPeak, Math.abs(sample.az_actual)),
+      0,
+    );
+    const peakLambdaDot = samples.reduce(
+      (currentPeak, sample) => Math.max(currentPeak, Math.abs(sample.lambda_dot)),
+      0,
+    );
+    const interceptSample = samples.find((sample, index) => (
+      index > 0 && sample.R <= params.sim.interceptRadius
+    ));
+
+    return createHistory(params, null, {
+      samples,
+      minMissDistance,
+      interceptTime: interceptSample?.t ?? null,
+      peakAz,
+      peakLambdaDot,
+    });
+  }
+
+  function createResumeStateFromSample(sample, stepIndex) {
+    return {
+      time: sample.t,
+      stepIndex,
+      missile: {
+        x: sample.x_m,
+        z: sample.z_m,
+        V: sample.V_m,
+        gamma: sample.gamma_m,
+      },
+      target: {
+        x: sample.x_t,
+        z: sample.z_t,
+        V: sample.V_t,
+        gamma: sample.gamma_t,
+      },
+    };
+  }
+
+  function buildContinuationOptions(params, result, sampleIndex) {
+    const lastIndex = Math.max(0, result.samples.length - 1);
+    const safeIndex = Math.max(0, Math.min(sampleIndex, lastIndex));
+    const currentSample = result.samples[safeIndex];
+    const prefixSamples = result.samples.slice(0, safeIndex);
+    const previousSample = prefixSamples.at(-1);
+    const resumeState = createResumeStateFromSample(currentSample, safeIndex);
+
+    return {
+      state: resumeState,
+      history: buildHistoryFromSamples(params, prefixSamples),
+      previousControl: previousSample
+        ? createControlFromSample(previousSample, currentSample.gamma_m)
+        : createInitialControl(resumeState),
+      previousDerived: createDerivedFromSample(previousSample),
     };
   }
 
@@ -231,14 +317,26 @@
     };
   }
 
-  function runSimulation(params, evaluator) {
+  function runSimulation(params, evaluator, options = {}) {
     const missileConfig = buildMissileConfig(params);
     const targetConfig = buildTargetConfig(params);
-    const state = createSimulationState(params);
-    state.target = normalizeTargetState(state.target, { time: 0 }, targetConfig);
-    const history = createHistory(params, state);
-    let previousDerived = null;
-    let previousControl = createInitialControl(state);
+    const state = options.state
+      ? {
+        time: options.state.time,
+        stepIndex: options.state.stepIndex,
+        missile: { ...options.state.missile },
+        target: { ...options.state.target },
+      }
+      : createSimulationState(params);
+    state.missile = normalizeMissileState(state.missile, missileConfig);
+    state.target = normalizeTargetState(state.target, { time: state.time }, targetConfig);
+    const history = options.history
+      ? createHistory(params, state, options.history)
+      : createHistory(params, state);
+    let previousDerived = options.previousDerived ?? null;
+    let previousControl = options.previousControl
+      ? { ...options.previousControl }
+      : createInitialControl(state);
     let outcome = {
       code: "timeout",
       ...STATUS_TEXT.timeout,
@@ -321,9 +419,18 @@
     return buildResult(params, history, outcome);
   }
 
+  function continueSimulationFromSample(params, evaluator, result, sampleIndex) {
+    if (!result?.samples?.length) {
+      return runSimulation(params, evaluator);
+    }
+
+    return runSimulation(params, evaluator, buildContinuationOptions(params, result, sampleIndex));
+  }
+
   GuidanceSim.simulationCore = {
     STATUS_TEXT,
     buildSimulationParams,
     runSimulation,
+    continueSimulationFromSample,
   };
 })();
