@@ -92,7 +92,7 @@
           throw new Error("Geçersiz sayı ifadesi bulundu.");
         }
 
-        tokens.push({ type: "number", value });
+        tokens.push({ type: "number", value, start: index, end });
         index = end;
         continue;
       }
@@ -103,13 +103,13 @@
           end += 1;
         }
 
-        tokens.push({ type: "identifier", value: expression.slice(index, end) });
+        tokens.push({ type: "identifier", value: expression.slice(index, end), start: index, end });
         index = end;
         continue;
       }
 
       if ("+-*/^(),".includes(character)) {
-        tokens.push({ type: character, value: character });
+        tokens.push({ type: character, value: character, start: index, end: index + 1 });
         index += 1;
         continue;
       }
@@ -380,6 +380,7 @@
   GuidanceSim.guidanceEngine = {
     SUPPORTED_FUNCTIONS,
     SUPPORTED_VARIABLES,
+    tokenize,
     createExpressionEvaluator,
     buildGuidanceContext,
   };

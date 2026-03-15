@@ -15,7 +15,7 @@
     computeTargetDerivatives,
     normalizeTargetState,
   } = GuidanceSim.targetModel || {};
-  const { buildGuidanceContext } = GuidanceSim.guidanceEngine || {};
+  const { createExpressionEvaluator, buildGuidanceContext } = GuidanceSim.guidanceEngine || {};
   const { computeRelativeGeometry } = GuidanceSim.geometry || {};
   const { degToRad, radToDeg } = GuidanceSim.utils.math;
 
@@ -36,6 +36,7 @@
     const missileMass = rawValues.missileMass ?? 85;
     const referenceArea = rawValues.referenceArea ?? 0.018;
     const dragCoeff = rawValues.dragCoeff ?? 0.34;
+    const targetCommandExpression = String(rawValues.targetCommandExpression ?? "").trim();
 
     return {
       sim: {
@@ -74,6 +75,15 @@
         motionModel: rawValues.targetMotionModel,
         sinAmplitude: rawValues.targetSinAmplitude,
         sinFrequency: rawValues.targetSinFrequency,
+        turnRate: degToRad(rawValues.targetTurnRateDeg ?? 0),
+        evasionRange: rawValues.targetEvasionRange ?? 1200,
+        waypointX: rawValues.targetWaypointX ?? rawValues.targetX,
+        waypointZ: rawValues.targetWaypointZ ?? rawValues.targetZ,
+        commandExpression: targetCommandExpression,
+        commandEvaluator: rawValues.targetMotionModel === "commanded"
+          ? createExpressionEvaluator(targetCommandExpression || "gamma_t")
+          : null,
+        commandTau: 0.55,
       },
       view: {
         showLos: rawValues.showLos ?? true,
@@ -317,6 +327,28 @@
     };
   }
 
+  function buildStepContext(state, params, history, previousDerived, previousControl) {
+    const derived = computeRelativeGeometry(state.missile, state.target, {
+      dt: params.sim.dt,
+      previousDerived,
+      referenceEnergy: history.referenceEnergy,
+    });
+
+    const guidanceScope = buildGuidanceContext({
+      time: state.time,
+      dt: params.sim.dt,
+      state,
+      derived,
+      previousControl,
+      params,
+    });
+
+    return {
+      derived,
+      guidanceScope,
+    };
+  }
+
   function runSimulation(params, evaluator, options = {}) {
     const missileConfig = buildMissileConfig(params);
     const targetConfig = buildTargetConfig(params);
@@ -344,23 +376,17 @@
     };
 
     while (state.time <= params.sim.tMax + 1e-9) {
-      const derived = computeRelativeGeometry(state.missile, state.target, {
-        dt: params.sim.dt,
+      const { derived, guidanceScope } = buildStepContext(
+        state,
+        params,
+        history,
         previousDerived,
-        referenceEnergy: history.referenceEnergy,
-      });
+        previousControl,
+      );
 
       let guidanceOutput = 0;
       try {
-        const context = buildGuidanceContext({
-          time: state.time,
-          dt: params.sim.dt,
-          state,
-          derived,
-          previousControl,
-          params,
-        });
-        guidanceOutput = evaluator.evaluate(context);
+        guidanceOutput = evaluator.evaluate(guidanceScope);
       } catch (error) {
         outcome = {
           code: "numerical_error",
@@ -405,11 +431,25 @@
       ));
 
       const nextTargetState = eulerStep(state.target, params.sim.dt, (currentTargetState) => (
-        computeTargetDerivatives(currentTargetState, { time: state.time }, targetConfig)
+        computeTargetDerivatives(currentTargetState, {
+          time: state.time,
+          dt: params.sim.dt,
+          derived,
+          state,
+          params,
+          commandScope: guidanceScope,
+        }, targetConfig)
       ));
 
       state.missile = normalizeMissileState(nextMissileState, missileConfig);
-      state.target = normalizeTargetState(nextTargetState, { time: state.time + params.sim.dt }, targetConfig);
+      state.target = normalizeTargetState(nextTargetState, {
+        time: state.time + params.sim.dt,
+        dt: params.sim.dt,
+        derived,
+        state,
+        params,
+        commandScope: guidanceScope,
+      }, targetConfig);
       state.time += params.sim.dt;
       state.stepIndex += 1;
       previousDerived = derived;

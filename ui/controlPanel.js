@@ -16,6 +16,22 @@
     return value;
   }
 
+  function readInputValue(input) {
+    if (input.type === "checkbox") {
+      return input.checked;
+    }
+
+    if (input.tagName === "SELECT") {
+      return input.value;
+    }
+
+    if (input.dataset.valueType === "string") {
+      return input.value;
+    }
+
+    return Number(input.value);
+  }
+
   class ControlPanel {
     constructor(root, statusElements, extraInputs = []) {
       this.root = root;
@@ -33,17 +49,7 @@
 
     getValues() {
       return Object.fromEntries(
-        this.inputs.map((input) => {
-          if (input.type === "checkbox") {
-            return [input.dataset.param, input.checked];
-          }
-
-          if (input.tagName === "SELECT") {
-            return [input.dataset.param, input.value];
-          }
-
-          return [input.dataset.param, Number(input.value)];
-        }),
+        this.inputs.map((input) => [input.dataset.param, readInputValue(input)]),
       );
     }
 
@@ -79,6 +85,10 @@
       const gammaDemand = values.outputMode === "gamma_demand";
       const energyModel = values.speedModel === "energy";
       const sinusoidalTarget = values.targetMotionModel === "sinusoidal";
+      const turningTarget = values.targetMotionModel === "constant_turn";
+      const evasiveTarget = values.targetMotionModel === "evasive";
+      const waypointTarget = values.targetMotionModel === "waypoint";
+      const commandedTarget = values.targetMotionModel === "commanded";
 
       this.setFieldVisibility("gammaTau", gammaDemand);
       this.setFieldVisibility("gammaCmdLimitDeg", gammaDemand);
@@ -89,6 +99,11 @@
       this.setFieldVisibility("dragCoeff", energyModel);
       this.setFieldVisibility("targetSinAmplitude", sinusoidalTarget);
       this.setFieldVisibility("targetSinFrequency", sinusoidalTarget);
+      this.setFieldVisibility("targetTurnRateDeg", turningTarget || evasiveTarget || waypointTarget || commandedTarget);
+      this.setFieldVisibility("targetEvasionRange", evasiveTarget);
+      this.setFieldVisibility("targetWaypointX", waypointTarget);
+      this.setFieldVisibility("targetWaypointZ", waypointTarget);
+      this.setFieldVisibility("targetCommandExpression", commandedTarget);
     }
 
     bindActions(handlers) {

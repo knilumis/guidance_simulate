@@ -71,6 +71,10 @@
                     <option value="linear">Sabit doğrusal uçuş</option>
                     <option value="constant_gamma">Sabit gamma ile tırmanış / alçalma</option>
                     <option value="sinusoidal">Sinüzoidal z manevrası</option>
+                    <option value="evasive">Kaçınma manevrası</option>
+                    <option value="constant_turn">Sabit dönüş oranı</option>
+                    <option value="waypoint">Waypoint takibi</option>
+                    <option value="commanded">Kullanıcı komutlu hedef</option>
                   </select>
                 </label>
                 <label class="control-field" data-field="targetSinAmplitude">
@@ -80,6 +84,26 @@
                 <label class="control-field" data-field="targetSinFrequency">
                   <span>Sinüzoid frekansı [Hz]</span>
                   <input data-param="targetSinFrequency" type="number" step="0.01" min="0">
+                </label>
+                <label class="control-field" data-field="targetTurnRateDeg">
+                  <span>Dönüş oranı [°/s]</span>
+                  <input data-param="targetTurnRateDeg" type="number" step="0.5">
+                </label>
+                <label class="control-field" data-field="targetEvasionRange">
+                  <span>Kaçınma tetik menzili [m]</span>
+                  <input data-param="targetEvasionRange" type="number" step="10" min="0">
+                </label>
+                <label class="control-field" data-field="targetWaypointX">
+                  <span>Waypoint x [m]</span>
+                  <input data-param="targetWaypointX" type="number" step="1">
+                </label>
+                <label class="control-field" data-field="targetWaypointZ">
+                  <span>Waypoint z [m]</span>
+                  <input data-param="targetWaypointZ" type="number" step="1">
+                </label>
+                <label class="control-field span-two" data-field="targetCommandExpression">
+                  <span>Hedef komut ifadesi [rad]</span>
+                  <textarea data-param="targetCommandExpression" data-value-type="string" rows="2" spellcheck="false"></textarea>
                 </label>
               </div>
             </section>
@@ -174,7 +198,13 @@
             </div>
 
             <label class="editor-label" for="guidanceExpression">Matematiksel ifade</label>
-            <textarea id="guidanceExpression" spellcheck="false"></textarea>
+            <div class="formula-editor-surface" id="formulaEditorSurface">
+              <pre id="guidanceHighlight" aria-hidden="true"></pre>
+              <textarea id="guidanceExpression" spellcheck="false"></textarea>
+              <div class="editor-tooltip is-hidden" id="editorTooltip"></div>
+              <div class="editor-autocomplete is-hidden" id="editorAutocomplete"></div>
+            </div>
+            <div class="editor-unit-warnings is-hidden" id="editorUnitWarnings"></div>
 
             <div class="formula-status is-hidden" id="formulaStatus" aria-live="polite"></div>
 
@@ -218,16 +248,28 @@
               <button id="sceneRestartBtn">Baştan Oynat</button>
               <button id="reportBtn" type="button">Rapor Oluştur</button>
               <div class="settings-menu" id="settingsMenu">
-                <button
-                  id="settingsBtn"
-                  class="icon-button"
-                  data-role="settings-toggle"
-                  type="button"
-                  aria-haspopup="dialog"
-                  aria-expanded="false"
-                  aria-label="Ayarlar"
-                  title="Ayarlar"
-                >⚙</button>
+                <div class="scene-icon-stack">
+                  <button
+                    id="settingsBtn"
+                    class="icon-button"
+                    data-role="settings-toggle"
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-expanded="false"
+                    aria-label="Ayarlar"
+                    title="Ayarlar"
+                  >&#9881;</button>
+                  <button
+                    id="bugBtn"
+                    class="icon-button"
+                    data-role="bug-toggle"
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-expanded="false"
+                    aria-label="Bug bildir"
+                    title="Bug bildir"
+                  >&#128030;</button>
+                </div>
                 <div class="settings-menu-panel is-hidden" role="dialog" aria-label="Ayarlar menüsü">
                   <section class="settings-section">
                     <div class="settings-head">
@@ -273,6 +315,36 @@
                         <input type="radio" name="themeChoice" value="light" data-theme-choice>
                         <span>Açık</span>
                       </label>
+                    </div>
+                  </section>
+
+                  <section class="settings-section">
+                    <div class="settings-title-row">
+                      <h3>Sürüm</h3>
+                      <span class="section-chip">BUILD</span>
+                    </div>
+                    <div class="settings-meta">
+                      <div class="settings-meta-item">
+                        <span>Şu anda versiyon</span>
+                        <strong>v1.0.2</strong>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <div class="bug-menu-panel is-hidden" role="dialog" aria-label="Bug bildirme menüsü">
+                  <section class="settings-section">
+                    <div class="settings-head">
+                      <h3>Bug Bildirme</h3>
+                      <span class="section-chip">INFO</span>
+                    </div>
+                    <div class="bug-contact">
+                      <span>Geliştirici</span>
+                      <strong>Berat Semercioğlu</strong>
+                    </div>
+                    <div class="bug-contact">
+                      <span>E-posta</span>
+                      <a href="mailto:psi.berat@gmail.com">psi.berat@gmail.com</a>
                     </div>
                   </section>
                 </div>
@@ -343,6 +415,8 @@
               </div>
             </div>
             <div class="plot-toolbar">
+              <button id="sweepBtn" type="button">Parametre Süpürme</button>
+              <button id="compareBtn" type="button">Algoritma Karşılaştır</button>
               <button id="resetPlotZoomBtn" type="button">Zoomu Sıfırla</button>
             </div>
           </div>
@@ -374,6 +448,7 @@
   <script defer src="./ui/guidePanel.js"></script>
   <script defer src="./ui/settingsPanel.js"></script>
   <script defer src="./ui/plots.js"></script>
+  <script defer src="./ui/analysisPanel.js"></script>
   <script defer src="./ui/reportGenerator.js"></script>
   <script defer src="./ui/scene2d.js"></script>
   <script defer src="./ui/layoutManager.js"></script>

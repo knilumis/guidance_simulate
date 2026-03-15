@@ -2,32 +2,95 @@
   const GuidanceSim = window.GuidanceSim || (window.GuidanceSim = {});
   const { GUIDANCE_EXAMPLES, DEFAULT_SCENARIO, HELP_FORMULAS, cloneScenario } = GuidanceSim.examples || {};
   const {
+    AnalysisPanel,
     ControlPanel,
     EditorPanel,
     GuidePanel,
+    LayoutManager,
     PlotManager,
+    PLOT_SPECS,
     ReportGenerator,
     Scene2D,
-    LayoutManager,
     SettingsPanel,
+    SWEEP_METRICS,
   } = GuidanceSim.ui || {};
   const { createExpressionEvaluator, SUPPORTED_FUNCTIONS, SUPPORTED_VARIABLES } = GuidanceSim.guidanceEngine || {};
-  const { buildSimulationParams, runSimulation, continueSimulationFromSample } = GuidanceSim.simulationCore || {};
+  const { buildSimulationParams, continueSimulationFromSample, runSimulation } = GuidanceSim.simulationCore || {};
+
+  function clampSweepSteps(value) {
+    return Math.max(2, Math.min(61, Math.round(value || 2)));
+  }
+
+  function sampleRange(start, end, steps) {
+    const safeSteps = clampSweepSteps(steps);
+    if (safeSteps <= 1 || Math.abs(end - start) < 1e-9) {
+      return [start];
+    }
+
+    const delta = (end - start) / (safeSteps - 1);
+    return Array.from({ length: safeSteps }, (_, index) => start + delta * index);
+  }
+
+  function getSweepMetric(result, metricId) {
+    switch (metricId) {
+      case "minMissDistance":
+        return result.stats.minMissDistance;
+      case "interceptTime":
+        return result.outcome.code === "hit" ? result.stats.interceptTime : NaN;
+      case "terminalSpeed":
+        return result.stats.terminalSpeed;
+      case "peakAz":
+        return result.stats.peakAz;
+      case "peakLambdaDot":
+        return result.stats.peakLambdaDotDeg;
+      case "finalTime":
+        return result.stats.finalTime;
+      default:
+        return NaN;
+    }
+  }
+
+  function selectBestSweepRun(runs, metricId) {
+    const metricInfo = SWEEP_METRICS?.find((item) => item.id === metricId);
+    const validRuns = runs.filter((run) => Number.isFinite(run.metricValue));
+
+    if (!validRuns.length) {
+      return null;
+    }
+
+    return validRuns.reduce((best, current) => {
+      if (!best) {
+        return current;
+      }
+
+      const currentValue = metricInfo?.direction === "min_abs" ? Math.abs(current.metricValue) : current.metricValue;
+      const bestValue = metricInfo?.direction === "min_abs" ? Math.abs(best.metricValue) : best.metricValue;
+
+      if (metricInfo?.direction === "max") {
+        return currentValue > bestValue ? current : best;
+      }
+
+      return currentValue < bestValue ? current : best;
+    }, null);
+  }
 
   function bootstrap() {
     if (
       !GUIDANCE_EXAMPLES
+      || !AnalysisPanel
       || !ControlPanel
       || !EditorPanel
       || !GuidePanel
+      || !LayoutManager
       || !PlotManager
+      || !Array.isArray(PLOT_SPECS)
       || !ReportGenerator
       || !Scene2D
-      || !LayoutManager
       || !SettingsPanel
+      || !Array.isArray(SWEEP_METRICS)
       || !buildSimulationParams
-      || !runSimulation
       || !continueSimulationFromSample
+      || !runSimulation
     ) {
       throw new Error("Gerekli script dosyalarından biri yüklenemedi.");
     }
@@ -56,6 +119,11 @@
       document.getElementById("plotToggles"),
       document.getElementById("plotsGrid"),
     );
+
+    const analysisPanel = new AnalysisPanel({
+      sweepButton: document.getElementById("sweepBtn"),
+      compareButton: document.getElementById("compareBtn"),
+    });
 
     const guidePanel = new GuidePanel({
       openButton: document.getElementById("guideBtn"),
@@ -87,6 +155,7 @@
       lastSimulationExampleId: "PNG",
       dirty: true,
       isExpressionValid: false,
+      isTargetCommandValid: true,
       viewSettings: {
         showLos: initialSettings.showLos,
         traceEnabled: initialSettings.traceEnabled,
@@ -94,12 +163,20 @@
       themeId: initialSettings.theme,
     };
 
+    function getRawValues() {
+      return {
+        ...controlPanel.getValues(),
+        ...appState.viewSettings,
+        themeId: appState.themeId,
+      };
+    }
+
     const reportGenerator = new ReportGenerator({
       button: document.getElementById("reportBtn"),
       plotManager,
       getSimulationResult: () => appState.simulationResult,
       getRawValues: () => ({
-        ...(appState.lastSimulationRawValues ?? controlPanel.getValues()),
+        ...(appState.lastSimulationRawValues ?? getRawValues()),
         ...appState.viewSettings,
         themeId: appState.themeId,
       }),
@@ -108,8 +185,29 @@
     });
 
     function updateRunState() {
-      controlPanel.setRunEnabled(appState.isExpressionValid);
-      scene.setRunEnabled(appState.isExpressionValid);
+      const isEnabled = appState.isExpressionValid && appState.isTargetCommandValid;
+      controlPanel.setRunEnabled(isEnabled);
+      scene.setRunEnabled(isEnabled);
+    }
+
+    function validateTargetCommand(rawValues, options = {}) {
+      const { silent = false } = options;
+      const usesCommandedTarget = rawValues.targetMotionModel === "commanded";
+      const expression = String(rawValues.targetCommandExpression ?? "").trim() || "gamma_t";
+
+      try {
+        if (usesCommandedTarget) {
+          createExpressionEvaluator(expression);
+        }
+        appState.isTargetCommandValid = true;
+      } catch (error) {
+        appState.isTargetCommandValid = false;
+        if (!silent) {
+          controlPanel.setStatus("error", "Hedef komutu hatası", `Hedef komut ifadesi geçersiz: ${error.message}`);
+        }
+      }
+
+      return appState.isTargetCommandValid;
     }
 
     function setDirty(message) {
@@ -117,6 +215,11 @@
 
       if (!appState.isExpressionValid) {
         controlPanel.setStatus("error", "Formül hatası", message ?? "Formül geçersiz; simülasyon başlatılamaz.");
+        return;
+      }
+
+      if (!appState.isTargetCommandValid) {
+        controlPanel.setStatus("error", "Hedef komutu hatası", message ?? "Hedef komut ifadesi geçersiz; simülasyon başlatılamaz.");
         return;
       }
 
@@ -147,6 +250,42 @@
       return appState.isExpressionValid;
     }
 
+    function ensureSimulationInputs(options = {}) {
+      const { silent = false } = options;
+      const rawValues = getRawValues();
+      const isExpressionValid = validateExpression({ silent });
+      const isTargetCommandValid = validateTargetCommand(rawValues, { silent });
+
+      updateRunState();
+      return {
+        ok: isExpressionValid && isTargetCommandValid,
+        rawValues,
+      };
+    }
+
+    function compileSimulation(rawValues, expression) {
+      const evaluator = createExpressionEvaluator(expression);
+      const params = buildSimulationParams(rawValues);
+      return { evaluator, params };
+    }
+
+    function runSimulationWithEvaluator(rawValues, evaluator) {
+      const params = buildSimulationParams(rawValues);
+      return {
+        params,
+        result: runSimulation(params, evaluator),
+      };
+    }
+
+    function runSimulationWithInputs(rawValues, expression) {
+      const { evaluator, params } = compileSimulation(rawValues, expression);
+      return {
+        evaluator,
+        params,
+        result: runSimulation(params, evaluator),
+      };
+    }
+
     function applyExample(exampleId, options = {}) {
       const { includeScenario = true } = options;
       const example = GUIDANCE_EXAMPLES[exampleId];
@@ -168,7 +307,7 @@
       }
 
       editorPanel.setMode(controlPanel.getValues().outputMode);
-      validateExpression({ silent: true });
+      ensureSimulationInputs({ silent: true });
       scene.setViewOptions(appState.viewSettings);
       setDirty(`${example.title} örneği yüklendi. Formülü düzenleyip yeni simülasyon çalıştırabilirsiniz.`);
     }
@@ -189,28 +328,31 @@
 
     function executeSimulation(options = {}) {
       const { autoplay = true, resetOnly = false } = options;
+      const validation = ensureSimulationInputs();
 
-      if (!validateExpression()) {
+      if (!validation.ok) {
         return false;
       }
 
-      const rawValues = {
-        ...controlPanel.getValues(),
-        ...appState.viewSettings,
-        themeId: appState.themeId,
-      };
-      const params = buildSimulationParams(rawValues);
+      let params;
+      try {
+        params = buildSimulationParams(validation.rawValues);
+      } catch (error) {
+        controlPanel.setStatus("error", "Parametre hatası", error.message);
+        return false;
+      }
+
       controlPanel.setStatus("running", "Hesaplanıyor", "State, geometry, guidance ve dynamics zinciri işleniyor.");
 
       const result = runSimulation(params, appState.compiledExpression);
       appState.simulationResult = result;
-      appState.lastSimulationRawValues = { ...rawValues };
+      appState.lastSimulationRawValues = { ...validation.rawValues };
       appState.lastSimulationExpression = editorPanel.getExpression();
       appState.lastSimulationExampleId = appState.activeExampleId;
       appState.dirty = false;
 
-      scene.loadSimulation(result, rawValues);
-      plotManager.update(result, rawValues);
+      scene.loadSimulation(result, validation.rawValues);
+      plotManager.update(result, validation.rawValues);
       refreshSceneAndPlotsLayout();
 
       controlPanel.setStatus(
@@ -230,18 +372,21 @@
 
     function continueSimulationFromCurrentState(options = {}) {
       const { keepPlaying = false } = options;
+      const validation = ensureSimulationInputs();
 
-      if (!appState.simulationResult || !validateExpression()) {
+      if (!appState.simulationResult || !validation.ok) {
         return false;
       }
 
       const playbackState = scene.getPlaybackState();
-      const rawValues = {
-        ...controlPanel.getValues(),
-        ...appState.viewSettings,
-        themeId: appState.themeId,
-      };
-      const params = buildSimulationParams(rawValues);
+      let params;
+      try {
+        params = buildSimulationParams(validation.rawValues);
+      } catch (error) {
+        controlPanel.setStatus("error", "Parametre hatası", error.message);
+        return false;
+      }
+
       const result = continueSimulationFromSample(
         params,
         appState.compiledExpression,
@@ -250,16 +395,16 @@
       );
 
       appState.simulationResult = result;
-      appState.lastSimulationRawValues = { ...rawValues };
+      appState.lastSimulationRawValues = { ...validation.rawValues };
       appState.lastSimulationExpression = editorPanel.getExpression();
       appState.lastSimulationExampleId = appState.activeExampleId;
       appState.dirty = false;
 
-      scene.replaceSimulation(result, rawValues, {
+      scene.replaceSimulation(result, validation.rawValues, {
         ...playbackState,
         playing: keepPlaying,
       });
-      plotManager.update(result, rawValues);
+      plotManager.update(result, validation.rawValues);
       refreshSceneAndPlotsLayout();
 
       controlPanel.setStatus(
@@ -298,6 +443,7 @@
         executeSimulation({ autoplay: false, resetOnly: true });
         return;
       }
+
       scene.reset();
     }
 
@@ -315,6 +461,7 @@
           }
         }
       }
+
       scene.step();
     }
 
@@ -336,7 +483,14 @@
         syncEditorMode();
       }
 
+      validateTargetCommand({ ...values, ...appState.viewSettings, themeId: appState.themeId }, { silent: true });
+      updateRunState();
       setDirty();
+
+      if (analysisPanel.isOpen?.()) {
+        analysisPanel.scheduleLiveRun("sweep");
+        analysisPanel.scheduleLiveRun("compare");
+      }
     });
 
     settingsPanel.bind({
@@ -344,6 +498,7 @@
         appState.themeId = themeId;
         plotManager.applyTheme();
         scene.applyTheme();
+        analysisPanel.applyTheme?.();
         refreshSceneAndPlotsLayout();
       },
       onViewChange: (viewSettings) => {
@@ -358,14 +513,125 @@
         applyExample(exampleId, { includeScenario: true });
       },
       onExpressionEdited: () => {
-        validateExpression({ silent: true });
-        if (appState.isExpressionValid && appState.simulationResult && scene.isPlaying()) {
+        ensureSimulationInputs({ silent: true });
+        if (
+          appState.isExpressionValid
+          && appState.isTargetCommandValid
+          && appState.simulationResult
+          && scene.isPlaying()
+        ) {
           const continued = continueSimulationFromCurrentState({ keepPlaying: true });
           if (continued) {
+            if (analysisPanel.isOpen?.()) {
+              analysisPanel.scheduleLiveRun("compare");
+              analysisPanel.scheduleLiveRun("sweep");
+            }
             return;
           }
         }
+
+        if (analysisPanel.isOpen?.()) {
+          analysisPanel.scheduleLiveRun("compare");
+          analysisPanel.scheduleLiveRun("sweep");
+        }
         setDirty();
+      },
+    });
+
+    analysisPanel.bind({
+      onRunSweep: (config) => {
+        const validation = ensureSimulationInputs({ silent: true });
+        if (!validation.ok) {
+          throw new Error("Mevcut formül veya hedef komutu geçerli değil.");
+        }
+
+        const evaluator = createExpressionEvaluator(editorPanel.getExpression());
+        const metricInfo = SWEEP_METRICS.find((item) => item.id === config.metricId) ?? SWEEP_METRICS[0];
+        const parameterLabel = controlPanel.root
+          ?.querySelector(`[data-param='${config.parameterId}']`)
+          ?.closest("[data-field]")
+          ?.querySelector("span")
+          ?.textContent
+          ?? config.parameterId;
+
+        const runs = sampleRange(config.start, config.end, config.steps).map((value) => {
+          const rawValues = { ...validation.rawValues, [config.parameterId]: value };
+          const { result } = runSimulationWithEvaluator(rawValues, evaluator);
+          return {
+            parameterValue: value,
+            metricValue: getSweepMetric(result, config.metricId),
+            outcomeCode: result.outcome.code,
+            outcomeLabel: result.outcome.label,
+            minMissDistance: result.stats.minMissDistance,
+            interceptTime: result.stats.interceptTime,
+            result,
+          };
+        });
+
+        return {
+          parameterId: config.parameterId,
+          parameterLabel,
+          metricId: config.metricId,
+          metricLabel: metricInfo.label,
+          metricUnit: metricInfo.unit,
+          runs,
+          best: selectBestSweepRun(runs, config.metricId),
+        };
+      },
+      onRunComparison: (config) => {
+        const validation = ensureSimulationInputs({ silent: true });
+        if (!validation.ok) {
+          throw new Error("Mevcut formül veya hedef komutu geçerli değil.");
+        }
+
+        if (!config.algorithmIds.length) {
+          throw new Error("En az bir algoritma seçin.");
+        }
+
+        const selectedMetric = PLOT_SPECS.find((item) => item.id === config.metricId) ?? PLOT_SPECS[0];
+        const baseRawValues = validation.rawValues;
+
+        const comparisonEntries = config.algorithmIds.map((algorithmId) => {
+          if (algorithmId === "USER") {
+            return {
+              id: "USER",
+              label: "Kullanıcı",
+              expression: editorPanel.getExpression(),
+              outputMode: baseRawValues.outputMode,
+              rawValues: { ...baseRawValues },
+            };
+          }
+
+          const example = GUIDANCE_EXAMPLES[algorithmId];
+          if (!example) {
+            return null;
+          }
+
+          return {
+            id: algorithmId,
+            label: example.title,
+            expression: example.expression,
+            outputMode: example.outputMode,
+            rawValues: {
+              ...baseRawValues,
+              outputMode: example.outputMode,
+            },
+          };
+        }).filter(Boolean);
+
+        return {
+          metricId: config.metricId,
+          metricAccessor: selectedMetric.accessor,
+          runs: comparisonEntries.map((entry) => {
+            const evaluator = createExpressionEvaluator(entry.expression);
+            const { result } = runSimulationWithEvaluator(entry.rawValues, evaluator);
+            return {
+              ...entry,
+              result,
+              outcomeLabel: result.outcome.label,
+            };
+          }),
+        };
       },
     });
 
@@ -391,9 +657,11 @@
     scene.setViewOptions(appState.viewSettings);
     plotManager.applyTheme();
     scene.applyTheme();
+    analysisPanel.applyTheme?.();
     refreshSceneAndPlotsLayout();
     controlPanel.setValues(cloneScenario(DEFAULT_SCENARIO));
     applyExample("PNG", { includeScenario: true });
+    ensureSimulationInputs({ silent: true });
     executeSimulation({ autoplay: true });
   }
 

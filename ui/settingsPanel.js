@@ -9,7 +9,9 @@
     constructor(root) {
       this.root = root;
       this.button = root?.querySelector("[data-role='settings-toggle']") ?? null;
+      this.bugButton = root?.querySelector("[data-role='bug-toggle']") ?? null;
       this.panel = root?.querySelector(".settings-menu-panel") ?? null;
+      this.bugPanel = root?.querySelector(".bug-menu-panel") ?? null;
       this.themeInputs = Array.from(root?.querySelectorAll("[data-theme-choice]") ?? []);
       this.viewInputs = Array.from(root?.querySelectorAll("[data-view-option]") ?? []);
       this.handlers = {
@@ -43,7 +45,12 @@
     bindEvents() {
       this.button?.addEventListener("click", (event) => {
         event.stopPropagation();
-        this.toggle();
+        this.toggleSettings();
+      });
+
+      this.bugButton?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        this.toggleBug();
       });
 
       this.themeInputs.forEach((input) => {
@@ -74,24 +81,51 @@
       });
     }
 
-    toggle(force) {
+    toggleSettings(force) {
       const shouldOpen = typeof force === "boolean" ? force : this.panel?.classList.contains("is-hidden");
       if (shouldOpen) {
-        this.open();
+        this.openSettings();
       } else {
-        this.close();
+        this.closeSettings();
       }
     }
 
-    open() {
+    toggleBug(force) {
+      const shouldOpen = typeof force === "boolean" ? force : this.bugPanel?.classList.contains("is-hidden");
+      if (shouldOpen) {
+        this.openBug();
+      } else {
+        this.closeBug();
+      }
+    }
+
+    openSettings() {
+      this.closeBug();
       this.panel?.classList.remove("is-hidden");
       this.button?.setAttribute("aria-expanded", "true");
       this.root?.classList.add("is-open");
     }
 
-    close() {
+    closeSettings() {
       this.panel?.classList.add("is-hidden");
       this.button?.setAttribute("aria-expanded", "false");
+    }
+
+    openBug() {
+      this.closeSettings();
+      this.bugPanel?.classList.remove("is-hidden");
+      this.bugButton?.setAttribute("aria-expanded", "true");
+      this.root?.classList.add("is-open");
+    }
+
+    closeBug() {
+      this.bugPanel?.classList.add("is-hidden");
+      this.bugButton?.setAttribute("aria-expanded", "false");
+    }
+
+    close() {
+      this.closeSettings();
+      this.closeBug();
       this.root?.classList.remove("is-open");
     }
 

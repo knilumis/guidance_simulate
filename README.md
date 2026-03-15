@@ -1,17 +1,18 @@
-# Gudum Angajman Simulatoru
+# Güdüm Angajman Simülatörü
 
-## Proje Amaci
+## Proje amacı
 
-Bu proje, kullanicinin kendi gudum kanununu matematiksel ifade olarak tanimlayip 2D `x-z` duzleminde fuze ve hedef angajmanini simule edebilmesi icin gelistirilmis tek sayfa bir istemci tarafli uygulamadir.
+Bu proje, kullanıcının kendi güdüm kanununu matematiksel ifade olarak tanımlayıp 2D `x-z` düzleminde füze-hedef angajmanını analiz edebilmesi için geliştirilmiş istemci taraflı bir uygulamadır.
 
-Hedefler:
+Temel kullanım hedefleri:
 
-- Gudum formullerini guvenli sekilde yazip dogrulamak
-- Fuze ve hedef geometrisini canli olarak gormek
-- Zamana bagli kontrol ve geometri serilerini analiz etmek
-- PNG ve BPG benzeri algoritmalari hizlica deneyebilmek
+- Güvenli bir ifade motoru ile güdüm formülü yazmak
+- Füze ve hedef dinamiğini aynı ekranda izlemek
+- Zaman serilerini grafiklerle incelemek
+- PNG, BPG ve kullanıcı formülünü hızlıca karşılaştırmak
+- Parametre süpürme ile hassasiyet analizi yapmak
 
-## Dosya Yapisi
+## Dosya yapısı
 
 ```text
 guidance_simulation/
@@ -21,40 +22,32 @@ guidance_simulation/
 |- README.md
 |- docs/
 |  |- bpg_aciklama.tex
-|- utils/
-|  |- math.js
 |- examples/
 |  |- guidanceExamples.js
 |- sim/
-|  |- integrator.js
-|  |- missileModel.js
-|  |- targetModel.js
 |  |- geometry.js
 |  |- guidanceEngine.js
+|  |- integrator.js
+|  |- missileModel.js
 |  |- simulationCore.js
+|  |- targetModel.js
 |- ui/
-   |- controlPanel.js
-   |- editorPanel.js
-   |- plots.js
-   |- scene2d.js
-   |- layoutManager.js
+|  |- analysisPanel.js
+|  |- controlPanel.js
+|  |- editorPanel.js
+|  |- guidePanel.js
+|  |- layoutManager.js
+|  |- plots.js
+|  |- reportGenerator.js
+|  |- scene2d.js
+|  |- settingsPanel.js
+|- utils/
+   |- math.js
 ```
 
-## Mimari Ozet
+## Matematik modeli
 
-Simulasyon cekirdegi asagidaki sira ile calisir:
-
-1. `state`: anlik fuze ve hedef durumlari tutulur
-2. `derived`: bagil geometri ve turetilmis buyuklukler hesaplanir
-3. `guidance`: kullanici formulu guvenli parser ile degerlendirilir
-4. `control`: `az_demand` veya `gamma_demand` komutlari elde edilir
-5. `dynamics`: fuze ve hedef turevleri hesaplanir
-6. `integration`: Euler integrasyonu ile bir sonraki adima gecilir
-7. `history`: grafikler ve animasyon icin zaman serisi saklanir
-
-## Matematik Modeli
-
-### 1. Bagil Geometri
+### 1. Bağıl geometri
 
 ```text
 dx = x_t - x_m
@@ -68,18 +61,14 @@ closing_velocity = -Rdot
 sigma = wrapAngle(lambda - gamma_m)
 ```
 
-### 2. az_demand Modu
-
-Kullanici formulu dogrudan yanal ivme komutu uretir.
+### 2. `az_demand` modu
 
 ```text
 az_actual = sat(az_cmd, -a_max, +a_max)
 gamma_dot = az_actual / V_m
 ```
 
-### 3. gamma_demand Modu
-
-Kullanici formulu ucus yolu acisi komutu uretir.
+### 3. `gamma_demand` modu
 
 ```text
 gamma_cmd -> angle limit -> rate limit
@@ -89,26 +78,30 @@ gamma_dot = sat(gamma_dot_des, -a_max / V_m, +a_max / V_m)
 az_actual = V_m * gamma_dot
 ```
 
-### 4. Basit Enerji Modeli
+### 4. Basit enerji modeli
 
 ```text
 D = 0.5 * rho * V^2 * S * Cd
 Vdot = (T - D) / m - g * sin(gamma_m)
 ```
 
-Mevcut surumde `rho` sabit alinmistir. Mimari, ileride ISA atmosfer modeli eklenebilecek sekilde hazirlanmistir.
+### 5. Simülasyon sırası
 
-### 5. Hedef Hareket Modelleri
+Her adım aşağıdaki sırayla çalışır:
 
-- Sabit dogrusal ucus
-- Sabit gamma ile tirmanis / alcalis
-- Sinuzoidal `z` manevrasi
+1. `state`: füze ve hedef durumları alınır
+2. `derived`: bağıl geometri ve türetilmiş büyüklükler hesaplanır
+3. `guidance`: kullanıcı formülü güvenli parser ile değerlendirilir
+4. `control`: füze komutu türetilir
+5. `dynamics`: füze ve hedef türevleri hesaplanır
+6. `integration`: Euler entegrasyonu ile bir sonraki adıma geçilir
+7. `history`: örnekler, grafikler ve animasyon için saklanır
 
-## Desteklenen Degiskenler
+## Desteklenen değişkenler
 
-Formul motoru yalnizca izinli degiskenler ve fonksiyonlari kabul eder.
+Formül motoru yalnızca izinli değişkenler ve matematik fonksiyonlarıyla çalışır.
 
-Temel degiskenler:
+Temel değişkenler:
 
 - `t`, `dt`
 - `x_m`, `z_m`, `x_t`, `z_t`
@@ -128,7 +121,7 @@ Temel degiskenler:
 - `N`, `k1`, `k2`
 - `g`, `intercept_radius`, `gamma_tau`, `a_max`
 
-Izinli matematik fonksiyonlari:
+İzinli fonksiyonlar:
 
 - `sin`, `cos`, `tan`
 - `asin`, `acos`, `atan`, `atan2`
@@ -137,71 +130,68 @@ Izinli matematik fonksiyonlari:
 - `pow`, `exp`, `log`
 - `pi`
 
-## Ornek Formuller
+Not: hedefin kullanıcı tanımlı komut ifadesi de aynı güvenli ifade motorunu kullanır.
 
-### PNG
+## Örnek formüller
 
-```text
-N * V_m * lambda_dot
-```
+- `PNG: N * V_m * lambda_dot`
+- `BPG: gamma_m + k1 * sigma + k2 * lambda_dot`
+- `Saf takip: lambda`
+- `Sönümlü takip: gamma_m + 1.2 * sigma + 0.6 * lambda_dot`
+- `Menzile duyarlı az komutu: N * closing_velocity * lambda_dot / max(R, intercept_radius)`
 
-### BPG benzeri gamma komutu
+## Hedef modelleri
 
-```text
-gamma_m + k1 * sigma + k2 * lambda_dot
-```
+Desteklenen hedef hareket modları:
 
-### Saf pursuit
+- Sabit doğrusal uçuş
+- Sabit gamma ile tırmanış / alçalma
+- Sinüzoidal `z` manevrası
+- Kaçınma manevrası
+- Sabit dönüş oranı
+- Waypoint takibi
+- Kullanıcı tanımlı hedef komutu
 
-```text
-lambda
-```
+## Arayüz özellikleri
 
-### Sonumlu pursuit
+- Sözdizimi renklendirmeli formül editörü
+- Otomatik tamamlama
+- Değişken tooltip’leri
+- Anlık birim uyarıları
+- Hatalı formülde simülasyonu engelleme
+- Sürüklenebilir splitter yapısı
+- Yeniden boyutlandırılabilir grafik paneli
+- Canvas sahnesinde grid, eksen ve ölçek bilgisi
+- Chart.js zaman grafikleri, zoom ve pan
+- Parametre süpürme paneli
+- Çoklu algoritma karşılaştırma ekranı
+- PDF rapor üretimi
+- Tema sistemi: `Radar`, `Su altı`, `Kilit`, `Açık`
 
-```text
-gamma_m + 1.2 * sigma + 0.6 * lambda_dot
-```
-
-### Menzile duyarli deneysel az komutu
-
-```text
-N * closing_velocity * lambda_dot / max(R, intercept_radius)
-```
-
-## Arayuz Ozellikleri
-
-- Profesyonel koyu tema
-- Sol form ulasimi ile sag sahne arasinda suruklenebilir splitter
-- Alt grafik paneli icin yeniden boyutlandirma splitter'i
-- Canvas sahnesinde grid, eksen etiketleri ve olcek bilgisi
-- Telemetri ve sonuc kartlari
-- Chart.js tabanli grafikler
-- Grafiklerde zoom / pan ve zoom sifirlama
-- Gercek zamanli formul dogrulama
-- Hatali formulde simulasyonun baslatilmasini engelleme
-
-## Dis Bagimliliklar
+## Dış bağımlılıklar
 
 - `Chart.js`
 - `chartjs-plugin-zoom`
 - `Hammer.js`
+- `jsPDF`
 
-Tum diger kisimlar vanilla HTML/CSS/JavaScript ile yazilmistir.
+Uygulamanın simülasyon ve arayüz mantığı vanilla HTML/CSS/JavaScript ile yazılmıştır.
 
-## Calistirma
+## Çalıştırma
 
-1. `index.html` dosyasini tarayicida acin.
-2. Sol menuden ornek algoritma secin.
-3. Parametreleri degistirin.
-4. Formul dogrulama alaninin gecerli oldugunu kontrol edin.
-5. `Baslat` ile simulasyonu yeniden uretin.
+1. `index.html` dosyasını tarayıcıda açın.
+2. Bir örnek algoritma seçin veya kendi formülünüzü yazın.
+3. Simülasyon parametrelerini düzenleyin.
+4. Formül ve hedef komutu geçerli ise `Başlat` ile simülasyonu çalıştırın.
+5. `Parametre Süpürme` ve `Algoritma Karşılaştır` araçlarıyla analizi genişletin.
+6. İsterseniz `Rapor Oluştur` ile PDF rapor alın.
 
-## TODO
+## TODO listesi
 
-- RK4 secenegini arayuze acmak
-- Sonuc verilerini CSV / JSON disa aktarmak
-- Daha gelismis hedef manevra kutuphanesi eklemek
-- ISA atmosfer modeli ve irtifaya bagli yogunluk secenegi eklemek
-- Formul editorune syntax highlighting ve satir ici hata isaretleme eklemek
-- Canvas sahnesine gecici olcum araci ve LOS aci gostergesi eklemek
+- RK4 seçeneğini arayüze açmak
+- Monte Carlo analizi eklemek
+- Sensör gürültüsü ve gecikme modeli eklemek
+- CSV / JSON dışa aktarma eklemek
+- ISA atmosfer modeli ve irtifaya bağlı yoğunluk eklemek
+- Çoklu hedef / çoklu füze senaryolarına genişlemek
+- Editörde satır içi hata işaretleme ve daha gelişmiş tip/birim analizi eklemek

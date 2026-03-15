@@ -16,6 +16,11 @@
     targetMotionModel: "linear",
     targetSinAmplitude: 120,
     targetSinFrequency: 0.12,
+    targetTurnRateDeg: 12,
+    targetEvasionRange: 1200,
+    targetWaypointX: 4200,
+    targetWaypointZ: 900,
+    targetCommandExpression: "gamma_t + 0.25 * sin(0.35 * t)",
   };
 
   const HELP_FORMULAS = [
