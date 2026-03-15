@@ -69,7 +69,7 @@
                   <span>Hedef hareket modeli</span>
                   <select data-param="targetMotionModel">
                     <option value="linear">Sabit doğrusal uçuş</option>
-                    <option value="constant_gamma">Sabit gamma ile tırmanış / alçalış</option>
+                    <option value="constant_gamma">Sabit gamma ile tırmanış / alçalma</option>
                     <option value="sinusoidal">Sinüzoidal z manevrası</option>
                   </select>
                 </label>
@@ -139,9 +139,7 @@
                 </label>
               </div>
             </section>
-
           </div>
-
         </section>
 
         <div
@@ -218,6 +216,67 @@
               <button id="scenePauseBtn">Durdur</button>
               <button id="sceneResumeBtn">Devam Et</button>
               <button id="sceneRestartBtn">Baştan Oynat</button>
+              <button id="reportBtn" type="button">Rapor Oluştur</button>
+              <div class="settings-menu" id="settingsMenu">
+                <button
+                  id="settingsBtn"
+                  class="icon-button"
+                  data-role="settings-toggle"
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  aria-label="Ayarlar"
+                  title="Ayarlar"
+                >⚙</button>
+                <div class="settings-menu-panel is-hidden" role="dialog" aria-label="Ayarlar menüsü">
+                  <section class="settings-section">
+                    <div class="settings-head">
+                      <h3>Ayarlar</h3>
+                      <span class="section-chip">MENU</span>
+                    </div>
+                  </section>
+
+                  <section class="settings-section">
+                    <div class="settings-title-row">
+                      <h3>Görünüm</h3>
+                      <span class="section-chip">VIEW</span>
+                    </div>
+                    <label class="settings-check">
+                      <input type="checkbox" data-view-option="showLos" checked>
+                      <span>LOS çizgisini göster</span>
+                    </label>
+                    <label class="settings-check">
+                      <input type="checkbox" data-view-option="traceEnabled" checked>
+                      <span>İz bırakmayı aç</span>
+                    </label>
+                  </section>
+
+                  <section class="settings-section">
+                    <div class="settings-title-row">
+                      <h3>Tema</h3>
+                      <span class="section-chip">STYLE</span>
+                    </div>
+                    <div class="theme-options">
+                      <label class="theme-option">
+                        <input type="radio" name="themeChoice" value="radar" data-theme-choice checked>
+                        <span>Radar</span>
+                      </label>
+                      <label class="theme-option">
+                        <input type="radio" name="themeChoice" value="underwater" data-theme-choice>
+                        <span>Su altı</span>
+                      </label>
+                      <label class="theme-option">
+                        <input type="radio" name="themeChoice" value="lock" data-theme-choice>
+                        <span>Kilit</span>
+                      </label>
+                      <label class="theme-option">
+                        <input type="radio" name="themeChoice" value="light" data-theme-choice>
+                        <span>Açık</span>
+                      </label>
+                    </div>
+                  </section>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -263,11 +322,11 @@
 
         <div
           class="splitter splitter-horizontal"
-        id="plotsSplitter"
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label="Grafik paneli boyutlandırma ayırıcı"
-      ></div>
+          id="plotsSplitter"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Grafik paneli boyutlandırma ayırıcı"
+        ></div>
 
         <section class="panel plots-panel" id="plotsPanel">
           <div class="panel-heading">
@@ -301,6 +360,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script defer src="./utils/math.js"></script>
   <script defer src="./sim/integrator.js"></script>
   <script defer src="./sim/missileModel.js"></script>
@@ -312,7 +372,9 @@
   <script defer src="./ui/controlPanel.js"></script>
   <script defer src="./ui/editorPanel.js"></script>
   <script defer src="./ui/guidePanel.js"></script>
+  <script defer src="./ui/settingsPanel.js"></script>
   <script defer src="./ui/plots.js"></script>
+  <script defer src="./ui/reportGenerator.js"></script>
   <script defer src="./ui/scene2d.js"></script>
   <script defer src="./ui/layoutManager.js"></script>
   <script defer src="./app.js"></script>

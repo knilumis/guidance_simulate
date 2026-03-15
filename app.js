@@ -1,7 +1,16 @@
 (() => {
   const GuidanceSim = window.GuidanceSim || (window.GuidanceSim = {});
   const { GUIDANCE_EXAMPLES, DEFAULT_SCENARIO, HELP_FORMULAS, cloneScenario } = GuidanceSim.examples || {};
-  const { ControlPanel, EditorPanel, GuidePanel, PlotManager, Scene2D, LayoutManager } = GuidanceSim.ui || {};
+  const {
+    ControlPanel,
+    EditorPanel,
+    GuidePanel,
+    PlotManager,
+    ReportGenerator,
+    Scene2D,
+    LayoutManager,
+    SettingsPanel,
+  } = GuidanceSim.ui || {};
   const { createExpressionEvaluator, SUPPORTED_FUNCTIONS, SUPPORTED_VARIABLES } = GuidanceSim.guidanceEngine || {};
   const { buildSimulationParams, runSimulation } = GuidanceSim.simulationCore || {};
 
@@ -12,13 +21,22 @@
       || !EditorPanel
       || !GuidePanel
       || !PlotManager
+      || !ReportGenerator
       || !Scene2D
       || !LayoutManager
+      || !SettingsPanel
       || !buildSimulationParams
       || !runSimulation
     ) {
       throw new Error("Gerekli script dosyalarından biri yüklenemedi.");
     }
+
+    const settingsPanel = new SettingsPanel(document.getElementById("settingsMenu"));
+    const initialSettings = settingsPanel.init({
+      theme: "radar",
+      showLos: true,
+      traceEnabled: true,
+    });
 
     const editorPanel = new EditorPanel(
       document.getElementById("editorPanel"),
@@ -63,9 +81,30 @@
       activeExampleId: "PNG",
       compiledExpression: null,
       simulationResult: null,
+      lastSimulationRawValues: null,
+      lastSimulationExpression: "",
+      lastSimulationExampleId: "PNG",
       dirty: true,
       isExpressionValid: false,
+      viewSettings: {
+        showLos: initialSettings.showLos,
+        traceEnabled: initialSettings.traceEnabled,
+      },
+      themeId: initialSettings.theme,
     };
+
+    const reportGenerator = new ReportGenerator({
+      button: document.getElementById("reportBtn"),
+      plotManager,
+      getSimulationResult: () => appState.simulationResult,
+      getRawValues: () => ({
+        ...(appState.lastSimulationRawValues ?? controlPanel.getValues()),
+        ...appState.viewSettings,
+        themeId: appState.themeId,
+      }),
+      getExpression: () => appState.lastSimulationExpression || editorPanel.getExpression(),
+      getActiveExample: () => GUIDANCE_EXAMPLES[appState.lastSimulationExampleId] ?? null,
+    });
 
     function updateRunState() {
       controlPanel.setRunEnabled(appState.isExpressionValid);
@@ -129,7 +168,7 @@
 
       editorPanel.setMode(controlPanel.getValues().outputMode);
       validateExpression({ silent: true });
-      scene.setViewOptions(controlPanel.getValues());
+      scene.setViewOptions(appState.viewSettings);
       setDirty(`${example.title} örneği yüklendi. Formülü düzenleyip yeni simülasyon çalıştırabilirsiniz.`);
     }
 
@@ -144,12 +183,19 @@
         return false;
       }
 
-      const rawValues = controlPanel.getValues();
+      const rawValues = {
+        ...controlPanel.getValues(),
+        ...appState.viewSettings,
+        themeId: appState.themeId,
+      };
       const params = buildSimulationParams(rawValues);
       controlPanel.setStatus("running", "Hesaplanıyor", "State, geometry, guidance ve dynamics zinciri işleniyor.");
 
       const result = runSimulation(params, appState.compiledExpression);
       appState.simulationResult = result;
+      appState.lastSimulationRawValues = { ...rawValues };
+      appState.lastSimulationExpression = editorPanel.getExpression();
+      appState.lastSimulationExampleId = appState.activeExampleId;
       appState.dirty = false;
 
       scene.loadSimulation(result, rawValues);
@@ -222,11 +268,19 @@
         syncEditorMode();
       }
 
-      if (changedKey === "showLos" || changedKey === "traceEnabled") {
-        scene.setViewOptions(values);
-      }
-
       setDirty();
+    });
+
+    settingsPanel.bind({
+      onThemeChange: (themeId) => {
+        appState.themeId = themeId;
+        plotManager.applyTheme();
+        scene.applyTheme();
+      },
+      onViewChange: (viewSettings) => {
+        appState.viewSettings = { ...appState.viewSettings, ...viewSettings };
+        scene.setViewOptions(appState.viewSettings);
+      },
     });
 
     editorPanel.bind({
@@ -258,6 +312,9 @@
 
     layoutManager.init();
     guidePanel.render();
+    scene.setViewOptions(appState.viewSettings);
+    plotManager.applyTheme();
+    scene.applyTheme();
     controlPanel.setValues(cloneScenario(DEFAULT_SCENARIO));
     applyExample("PNG", { includeScenario: true });
     executeSimulation({ autoplay: true });

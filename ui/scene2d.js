@@ -2,6 +2,11 @@
   const GuidanceSim = window.GuidanceSim || (window.GuidanceSim = {});
   const { clamp, formatNumber, niceStep } = GuidanceSim.utils.math;
 
+  function getCssVar(name, fallback) {
+    const value = window.getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
+  }
+
   class Scene2D {
     constructor(root) {
       this.root = root;
@@ -74,6 +79,31 @@
 
     setRunEnabled(isEnabled) {
       this.playButtons.start.disabled = !isEnabled;
+    }
+
+    getPalette() {
+      return {
+        background: getCssVar("--canvas-bg", "#031008"),
+        empty: getCssVar("--scene-empty", "rgba(220, 255, 230, 0.75)"),
+        grid: getCssVar("--scene-grid", "rgba(98, 255, 144, 0.1)"),
+        gridText: getCssVar("--scene-grid-text", "rgba(188, 255, 208, 0.8)"),
+        axis: getCssVar("--scene-axis", "rgba(99, 255, 141, 0.45)"),
+        axisText: getCssVar("--scene-axis-text", "rgba(220, 255, 230, 0.92)"),
+        scaleBg: getCssVar("--scene-scale-bg", "rgba(4, 11, 20, 0.78)"),
+        scaleBorder: getCssVar("--scene-scale-border", "rgba(99, 255, 141, 0.28)"),
+        scaleText: getCssVar("--scene-scale-text", "rgba(220, 255, 230, 0.92)"),
+        scaleLine: getCssVar("--scene-scale-line", "rgba(46, 255, 103, 0.95)"),
+        missileTrace: getCssVar("--scene-trace-missile", "rgba(99, 255, 141, 0.95)"),
+        targetTrace: getCssVar("--scene-trace-target", "rgba(180, 255, 91, 0.95)"),
+        los: getCssVar("--scene-los", "rgba(124, 255, 164, 0.72)"),
+        missile: getCssVar("--scene-missile", "#63ff8d"),
+        target: getCssVar("--scene-target", "#b4ff5b"),
+        vehicleStroke: getCssVar("--scene-vehicle-stroke", "rgba(255, 255, 255, 0.24)"),
+      };
+    }
+
+    applyTheme() {
+      this.render();
     }
 
     bindCanvasInteraction() {
@@ -295,7 +325,7 @@
       };
     }
 
-    drawGrid(width, height) {
+    drawGrid(width, height, palette) {
       const ctx = this.ctx;
       const worldStep = niceStep(120 / this.view.scale);
       const leftWorld = this.view.centerX - width / (2 * this.view.scale);
@@ -305,8 +335,8 @@
 
       ctx.save();
       ctx.lineWidth = 1;
-      ctx.strokeStyle = "rgba(98, 255, 144, 0.1)";
-      ctx.fillStyle = "rgba(188, 255, 208, 0.8)";
+      ctx.strokeStyle = palette.grid;
+      ctx.fillStyle = palette.gridText;
       ctx.font = "10px Consolas";
 
       for (let x = Math.floor(leftWorld / worldStep) * worldStep; x <= rightWorld; x += worldStep) {
@@ -330,11 +360,11 @@
       ctx.restore();
     }
 
-    drawAxes(width, height) {
+    drawAxes(width, height, palette) {
       const ctx = this.ctx;
       const origin = this.worldToScreen(0, 0);
       ctx.save();
-      ctx.strokeStyle = "rgba(99, 255, 141, 0.45)";
+      ctx.strokeStyle = palette.axis;
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(0, origin.y);
@@ -342,14 +372,14 @@
       ctx.moveTo(origin.x, 0);
       ctx.lineTo(origin.x, height);
       ctx.stroke();
-      ctx.fillStyle = "rgba(220, 255, 230, 0.92)";
+      ctx.fillStyle = palette.axisText;
       ctx.font = "11px Consolas";
       ctx.fillText("x [m]", width - 42, origin.y - 8);
       ctx.fillText("z [m]", origin.x + 8, 18);
       ctx.restore();
     }
 
-    drawScaleInfo(width, height) {
+    drawScaleInfo(width, height, palette) {
       const ctx = this.ctx;
       const metersPerPixel = 1 / this.view.scale;
       const barMeters = niceStep(metersPerPixel * 120);
@@ -358,8 +388,8 @@
       const y = height - 54;
 
       ctx.save();
-      ctx.fillStyle = "rgba(4, 11, 20, 0.78)";
-      ctx.strokeStyle = "rgba(99, 255, 141, 0.28)";
+      ctx.fillStyle = palette.scaleBg;
+      ctx.strokeStyle = palette.scaleBorder;
       ctx.lineWidth = 1;
       ctx.beginPath();
       if (typeof ctx.roundRect === "function") {
@@ -370,11 +400,11 @@
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = "rgba(220, 255, 230, 0.92)";
+      ctx.fillStyle = palette.scaleText;
       ctx.font = "10px Consolas";
       ctx.fillText(`Ölçek: 1 px = ${formatNumber(metersPerPixel, 2)} m`, x, y - 10);
 
-      ctx.strokeStyle = "rgba(46, 255, 103, 0.95)";
+      ctx.strokeStyle = palette.scaleLine;
       ctx.lineWidth = 2.4;
       ctx.beginPath();
       ctx.moveTo(x, y + 6);
@@ -431,7 +461,7 @@
       ctx.restore();
     }
 
-    drawVehicle(x, z, gamma, color, size, type) {
+    drawVehicle(x, z, gamma, color, size, type, palette) {
       const ctx = this.ctx;
       const point = this.worldToScreen(x, z);
 
@@ -439,7 +469,7 @@
       ctx.translate(point.x, point.y);
       ctx.rotate(-gamma);
       ctx.fillStyle = color;
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.24)";
+      ctx.strokeStyle = palette.vehicleStroke;
       ctx.lineWidth = 1.1;
 
       ctx.beginPath();
@@ -464,32 +494,33 @@
       const ctx = this.ctx;
       const width = this.canvas.clientWidth || 1;
       const height = this.canvas.clientHeight || 1;
+      const palette = this.getPalette();
 
       ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = "#031008";
+      ctx.fillStyle = palette.background;
       ctx.fillRect(0, 0, width, height);
 
       if (!this.frames.length) {
-        ctx.fillStyle = "rgba(220, 255, 230, 0.75)";
+        ctx.fillStyle = palette.empty;
         ctx.font = "16px Consolas";
         ctx.fillText("Simülasyon verisi bekleniyor.", 20, 30);
         return;
       }
 
-      this.drawGrid(width, height);
-      this.drawAxes(width, height);
+      this.drawGrid(width, height, palette);
+      this.drawAxes(width, height, palette);
 
       const current = this.frames[this.playhead];
       if (this.options.traceEnabled) {
-        this.drawTrajectoryFromFrames("x_m", "z_m", this.playhead, "rgba(99, 255, 141, 0.95)");
-        this.drawTrajectoryFromFrames("x_t", "z_t", this.playhead, "rgba(180, 255, 91, 0.95)");
+        this.drawTrajectoryFromFrames("x_m", "z_m", this.playhead, palette.missileTrace);
+        this.drawTrajectoryFromFrames("x_t", "z_t", this.playhead, palette.targetTrace);
       }
 
       if (this.options.showLos) {
         const missilePoint = this.worldToScreen(current.x_m, current.z_m);
         const targetPoint = this.worldToScreen(current.x_t, current.z_t);
         ctx.save();
-        ctx.strokeStyle = "rgba(124, 255, 164, 0.72)";
+        ctx.strokeStyle = palette.los;
         ctx.setLineDash([8, 6]);
         ctx.lineWidth = 1.4;
         ctx.beginPath();
@@ -499,9 +530,9 @@
         ctx.restore();
       }
 
-      this.drawVehicle(current.x_m, current.z_m, current.gamma_m, "#63ff8d", 12, "missile");
-      this.drawVehicle(current.x_t, current.z_t, current.gamma_t, "#b4ff5b", 10, "target");
-      this.drawScaleInfo(width, height);
+      this.drawVehicle(current.x_m, current.z_m, current.gamma_m, palette.missile, 12, "missile", palette);
+      this.drawVehicle(current.x_t, current.z_t, current.gamma_t, palette.target, 10, "target", palette);
+      this.drawScaleInfo(width, height, palette);
 
       const now = window.performance?.now?.() ?? Date.now();
       if (
