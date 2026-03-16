@@ -4,6 +4,7 @@
   const {
     AnalysisPanel,
     ControlPanel,
+    EasterEgg3D,
     EditorPanel,
     GuidePanel,
     LayoutManager,
@@ -16,6 +17,11 @@
   } = GuidanceSim.ui || {};
   const { createExpressionEvaluator, SUPPORTED_FUNCTIONS, SUPPORTED_VARIABLES } = GuidanceSim.guidanceEngine || {};
   const { buildSimulationParams, continueSimulationFromSample, runSimulation } = GuidanceSim.simulationCore || {};
+  const EASTER_EGG_PHRASE = "eva is the best";
+
+  function isEasterEggExpression(expression) {
+    return String(expression ?? "").trim().toLowerCase() === EASTER_EGG_PHRASE;
+  }
 
   function clampSweepSteps(value) {
     return Math.max(2, Math.min(61, Math.round(value || 2)));
@@ -106,6 +112,7 @@
       !GUIDANCE_EXAMPLES
       || !AnalysisPanel
       || !ControlPanel
+      || !EasterEgg3D
       || !EditorPanel
       || !GuidePanel
       || !LayoutManager
@@ -155,6 +162,7 @@
     const guidePanel = new GuidePanel({
       openButton: document.getElementById("guideBtn"),
     });
+    const easterEgg3D = new EasterEgg3D();
 
     const scene = new Scene2D(document.getElementById("scenePanel"));
     const layoutManager = new LayoutManager({
@@ -182,6 +190,7 @@
       lastSimulationExampleId: "PNG",
       dirty: true,
       isExpressionValid: false,
+      secretModeArmed: false,
       isTargetCommandValid: true,
       viewSettings: {
         showLos: initialSettings.showLos,
@@ -213,7 +222,7 @@
     });
 
     function updateRunState() {
-      const isEnabled = appState.isExpressionValid && appState.isTargetCommandValid;
+      const isEnabled = (appState.isExpressionValid || appState.secretModeArmed) && appState.isTargetCommandValid;
       controlPanel.setRunEnabled(isEnabled);
       scene.setRunEnabled(isEnabled);
     }
@@ -240,6 +249,14 @@
 
     function setDirty(message) {
       appState.dirty = true;
+      if (appState.secretModeArmed) {
+        controlPanel.setStatus(
+          "ready",
+          "Gizli Mod",
+          "3D gösterim hazır. Başlat düğmesi ile gizli önleme sahnesini açabilirsiniz.",
+        );
+        return;
+      }
 
       if (!appState.isExpressionValid) {
         controlPanel.setStatus("error", "Formül hatası", message ?? "Formül geçersiz; simülasyon başlatılamaz.");
@@ -260,9 +277,19 @@
 
     function validateExpression(options = {}) {
       const { silent = false } = options;
+      const expression = editorPanel.getExpression();
+      appState.secretModeArmed = isEasterEggExpression(expression);
+
+      if (appState.secretModeArmed) {
+        appState.compiledExpression = null;
+        appState.isExpressionValid = false;
+        editorPanel.setFormulaStatus("", { isSuccess: true });
+        updateRunState();
+        return false;
+      }
 
       try {
-        appState.compiledExpression = createExpressionEvaluator(editorPanel.getExpression());
+        appState.compiledExpression = createExpressionEvaluator(expression);
         appState.isExpressionValid = true;
         editorPanel.setFormulaStatus("", { isSuccess: true });
       } catch (error) {
@@ -355,7 +382,7 @@
     }
 
     function scheduleLiveParameterUpdate(changedKey) {
-      if (!LIVE_UPDATE_PARAMS.has(changedKey) || !appState.simulationResult) {
+      if (appState.secretModeArmed || !LIVE_UPDATE_PARAMS.has(changedKey) || !appState.simulationResult) {
         return;
       }
 
@@ -456,6 +483,17 @@
     }
 
     function handleStart() {
+      if (appState.secretModeArmed) {
+        scene.pause();
+        easterEgg3D.open();
+        controlPanel.setStatus(
+          "ready",
+          "Gizli Mod",
+          "3D önleme gösterimi açıldı. Pencereyi kapatınca normal akışa dönebilirsiniz.",
+        );
+        return;
+      }
+
       executeSimulation({ autoplay: true });
     }
 
@@ -464,6 +502,11 @@
     }
 
     function handleResume() {
+      if (appState.secretModeArmed && !appState.simulationResult) {
+        easterEgg3D.open();
+        return;
+      }
+
       if (!appState.simulationResult) {
         executeSimulation({ autoplay: true });
         return;
@@ -555,6 +598,8 @@
       onExpressionEdited: () => {
         ensureSimulationInputs({ silent: true });
         if (
+          !appState.secretModeArmed
+          &&
           appState.isExpressionValid
           && appState.isTargetCommandValid
           && appState.simulationResult

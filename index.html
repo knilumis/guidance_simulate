@@ -441,9 +441,30 @@
     </main>
   </div>
 
+  <div class="easter-egg-overlay is-hidden" id="easterEggOverlay" aria-hidden="true">
+    <div class="easter-egg-shell">
+      <div class="easter-egg-head">
+        <div>
+          <p class="section-kicker">Gizli Mod</p>
+          <h2>3D Önleme Mini Oyun</h2>
+        </div>
+        <button id="easterEggCloseBtn" class="easter-egg-close" type="button" aria-label="3D gösterimi kapat">X</button>
+      </div>
+      <div class="easter-egg-viewport" id="easterEggViewport">
+        <div class="easter-egg-target-box is-hidden" id="easterEggTargetBox" aria-hidden="true"></div>
+        <div class="easter-egg-crosshair" aria-hidden="true"></div>
+      </div>
+      <div class="easter-egg-hud">
+        <strong id="easterEggStatus">Seeker aktif</strong>
+        <span id="easterEggCaption">Fare ile yön verin, hedefi nişangaha alın. Başarısız olursanız R ile tekrar deneyin.</span>
+      </div>
+    </div>
+  </div>
+
   <script>
     window.GuidanceSim = window.GuidanceSim || {};
   </script>
+  <script defer src="./vendor/three.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
@@ -458,6 +479,7 @@
   <script defer src="./examples/guidanceExamples.js"></script>
   <script defer src="./ui/controlPanel.js"></script>
   <script defer src="./ui/editorPanel.js"></script>
+  <script defer src="./ui/easterEgg3d.js"></script>
   <script defer src="./ui/guidePanel.js"></script>
   <script defer src="./ui/settingsPanel.js"></script>
   <script defer src="./ui/plots.js"></script>

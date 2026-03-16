@@ -1843,6 +1843,189 @@ button.active {
   margin-top: auto;
 }
 
+.easter-egg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 8, 18, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.easter-egg-overlay.is-hidden {
+  display: none;
+}
+
+.easter-egg-shell {
+  width: min(1320px, 100%);
+  height: min(92vh, 820px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(98, 188, 255, 0.34);
+  background:
+    linear-gradient(180deg, rgba(6, 18, 34, 0.98), rgba(4, 10, 22, 0.95));
+  box-shadow:
+    0 0 0 1px rgba(151, 214, 255, 0.08),
+    0 26px 60px rgba(0, 0, 0, 0.46);
+}
+
+.easter-egg-head,
+.easter-egg-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.easter-egg-head h2 {
+  color: #eef8ff;
+}
+
+.easter-egg-viewport {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  cursor: none;
+  border: 1px solid rgba(151, 214, 255, 0.34);
+  background:
+    radial-gradient(circle at 50% 32%, rgba(255, 255, 255, 0.22), transparent 26%),
+    linear-gradient(180deg, #dff4ff 0%, #88c4f5 38%, #5e98d0 100%);
+}
+
+.easter-egg-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.easter-egg-target-box {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 68px;
+  height: 68px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(78, 255, 140, 0.96);
+  box-shadow:
+    0 0 0 1px rgba(78, 255, 140, 0.18),
+    0 0 18px rgba(78, 255, 140, 0.34),
+    inset 0 0 18px rgba(78, 255, 140, 0.08);
+  background: rgba(20, 255, 126, 0.04);
+  pointer-events: none;
+  opacity: 0.88;
+  transition:
+    transform 0.06s linear,
+    width 0.08s linear,
+    height 0.08s linear,
+    opacity 0.12s linear;
+}
+
+.easter-egg-target-box::before,
+.easter-egg-target-box::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(78, 255, 140, 0.72);
+}
+
+.easter-egg-target-box::after {
+  inset: -9px;
+  border: 0;
+  border-top: 2px solid rgba(78, 255, 140, 0.92);
+  border-left: 2px solid rgba(78, 255, 140, 0.92);
+  width: 18px;
+  height: 18px;
+  box-shadow:
+    calc(100% + 0px) 0 0 0 rgba(78, 255, 140, 0.92),
+    0 calc(100% + 0px) 0 0 rgba(78, 255, 140, 0.92),
+    calc(100% + 0px) calc(100% + 0px) 0 0 rgba(78, 255, 140, 0.92);
+}
+
+.easter-egg-target-box.is-hidden {
+  display: none;
+}
+
+.easter-egg-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 74px;
+  height: 74px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0.88;
+  transition: transform 0.08s linear, opacity 0.12s linear;
+}
+
+.easter-egg-crosshair::before,
+.easter-egg-crosshair::after {
+  content: "";
+  position: absolute;
+}
+
+.easter-egg-crosshair::before {
+  inset: 0;
+  border: 1px solid rgba(229, 247, 255, 0.72);
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(210, 240, 255, 0.42);
+}
+
+.easter-egg-crosshair::after {
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border-left: 1px solid rgba(229, 247, 255, 0.92);
+  border-right: 1px solid rgba(229, 247, 255, 0.92);
+  border-top: 1px solid rgba(229, 247, 255, 0.92);
+  border-bottom: 1px solid rgba(229, 247, 255, 0.92);
+}
+
+.easter-egg-hud {
+  padding: 12px 14px;
+  border: 1px solid rgba(98, 188, 255, 0.28);
+  background: linear-gradient(180deg, rgba(2, 10, 20, 0.94), rgba(4, 18, 30, 0.9));
+}
+
+.easter-egg-hud strong,
+.easter-egg-hud span {
+  margin: 0;
+  color: #e8f6ff;
+}
+
+.easter-egg-hud strong {
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.easter-egg-hud span {
+  flex: 1;
+  color: rgba(222, 241, 255, 0.84);
+  font-size: 0.76rem;
+  text-align: right;
+  line-height: 1.5;
+}
+
+.easter-egg-close {
+  min-width: 40px;
+  height: 38px;
+  padding: 0 12px;
+  border-color: rgba(151, 214, 255, 0.34);
+  background: rgba(4, 16, 30, 0.92);
+  color: #eef8ff;
+}
+
+.easter-egg-close:hover:not(:disabled) {
+  border-color: rgba(210, 240, 255, 0.72);
+  background: rgba(12, 28, 46, 0.98);
+}
+
 .report-overlay {
   position: fixed;
   inset: 0;
