@@ -49,6 +49,11 @@
       expression: "N * closing_velocity * lambda_dot / max(R, intercept_radius)",
       note: "Menzil azaldıkça komutu ölçeklemeye çalışan deneysel örnek.",
     },
+    {
+      title: "Kosullu if mantigi",
+      expression: "if(R > 1200, N * V_m * lambda_dot, 0.7 * N * V_m * lambda_dot)",
+      note: "Kosul dogruysa ilk, yanlissa ikinci dali calistiran guvenli if() ornegi.",
+    },
   ];
 
   const GUIDANCE_EXAMPLES = {

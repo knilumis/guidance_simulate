@@ -128,9 +128,11 @@ Temel değişkenler:
 - `sqrt`, `abs`
 - `min`, `max`
 - `pow`, `exp`, `log`
+- `if(condition, dogru_dal, yanlis_dal)`
 - `pi`
 
 Not: hedefin kullanıcı tanımlı komut ifadesi de aynı güvenli ifade motorunu kullanır.
+Kosullu mantık için ayrıca `>`, `>=`, `<`, `<=`, `==`, `!=`, `&&`, `||`, `!` ve `kosul ? a : b` yapısı desteklenir.
 
 ## Örnek formüller
 
@@ -139,6 +141,7 @@ Not: hedefin kullanıcı tanımlı komut ifadesi de aynı güvenli ifade motorun
 - `Saf takip: lambda`
 - `Sönümlü takip: gamma_m + 1.2 * sigma + 0.6 * lambda_dot`
 - `Menzile duyarlı az komutu: N * closing_velocity * lambda_dot / max(R, intercept_radius)`
+- `Kosullu seçim: if(R > 1200, N * V_m * lambda_dot, 0.7 * N * V_m * lambda_dot)`
 
 ## Hedef modelleri
 

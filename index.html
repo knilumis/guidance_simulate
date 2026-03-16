@@ -200,8 +200,7 @@
             <label class="editor-label" for="guidanceExpression">Matematiksel ifade</label>
             <div class="formula-editor-surface" id="formulaEditorSurface">
               <pre id="guidanceHighlight" aria-hidden="true"></pre>
-              <textarea id="guidanceExpression" spellcheck="false"></textarea>
-              <div class="editor-tooltip is-hidden" id="editorTooltip"></div>
+              <textarea id="guidanceExpression" spellcheck="false" rows="10"></textarea>
               <div class="editor-autocomplete is-hidden" id="editorAutocomplete"></div>
             </div>
             <div class="editor-unit-warnings is-hidden" id="editorUnitWarnings"></div>
@@ -218,10 +217,10 @@
               <div class="function-tags" id="functionLegend"></div>
             </div>
 
-            <div class="legend-block">
-              <h3>Örnek Formüller</h3>
+            <details class="legend-block legend-disclosure">
+              <summary>Örnek Algoritmalar</summary>
               <div class="formula-example-grid" id="formulaExamples"></div>
-            </div>
+            </details>
           </section>
         </section>
       </section>
@@ -261,14 +260,30 @@
                   >&#9881;</button>
                   <button
                     id="bugBtn"
-                    class="icon-button"
+                    class="icon-button icon-button-bug"
                     data-role="bug-toggle"
                     type="button"
                     aria-haspopup="dialog"
                     aria-expanded="false"
                     aria-label="Bug bildir"
                     title="Bug bildir"
-                  >&#128030;</button>
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path
+                        d="M12 6.2c-2.67 0-4.83 2.2-4.83 4.92v2.49c0 2.72 2.16 4.92 4.83 4.92s4.83-2.2 4.83-4.92v-2.49c0-2.72-2.16-4.92-4.83-4.92Z"
+                      ></path>
+                      <path d="M12 3.3v2.1"></path>
+                      <path d="M8.55 5.1 7.2 3.75"></path>
+                      <path d="M15.45 5.1 16.8 3.75"></path>
+                      <path d="M7.17 10.2 4.5 8.9"></path>
+                      <path d="M7.17 14.2 4.5 15.5"></path>
+                      <path d="M16.83 10.2 19.5 8.9"></path>
+                      <path d="M16.83 14.2 19.5 15.5"></path>
+                      <path d="M9.9 11.35h.01"></path>
+                      <path d="M14.1 11.35h.01"></path>
+                      <path d="M10.15 15.1c.45.37 1.07.6 1.85.6.78 0 1.4-.23 1.85-.6"></path>
+                    </svg>
+                  </button>
                 </div>
                 <div class="settings-menu-panel is-hidden" role="dialog" aria-label="Ayarlar menüsü">
                   <section class="settings-section">
@@ -318,18 +333,6 @@
                     </div>
                   </section>
 
-                  <section class="settings-section">
-                    <div class="settings-title-row">
-                      <h3>Sürüm</h3>
-                      <span class="section-chip">BUILD</span>
-                    </div>
-                    <div class="settings-meta">
-                      <div class="settings-meta-item">
-                        <span>Şu anda versiyon</span>
-                        <strong>v1.0.2</strong>
-                      </div>
-                    </div>
-                  </section>
                 </div>
 
                 <div class="bug-menu-panel is-hidden" role="dialog" aria-label="Bug bildirme menüsü">
@@ -345,6 +348,16 @@
                     <div class="bug-contact">
                       <span>E-posta</span>
                       <a href="mailto:psi.berat@gmail.com">psi.berat@gmail.com</a>
+                    </div>
+                    <div class="settings-title-row bug-meta-title">
+                      <h3>Sürüm</h3>
+                      <span class="section-chip">BUILD</span>
+                    </div>
+                    <div class="settings-meta">
+                      <div class="settings-meta-item">
+                        <span>Şu anda versiyon</span>
+                        <strong>v1.0.2</strong>
+                      </div>
                     </div>
                   </section>
                 </div>

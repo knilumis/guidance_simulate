@@ -1,6 +1,7 @@
 (() => {
   const GuidanceSim = window.GuidanceSim || (window.GuidanceSim = {});
 
+  const BOOLEAN_EPSILON = 1e-12;
   const CONSTANTS = {
     pi: Math.PI,
   };
@@ -20,31 +21,32 @@
     pow: { minArgs: 2, maxArgs: 2, fn: Math.pow },
     exp: { minArgs: 1, maxArgs: 1, fn: Math.exp },
     log: { minArgs: 1, maxArgs: 1, fn: Math.log },
+    if: { minArgs: 3, maxArgs: 3, lazy: true },
   };
 
   const SUPPORTED_FUNCTIONS = Object.keys(FUNCTION_DEFINITIONS);
 
   const SUPPORTED_VARIABLES = [
-    { name: "t", description: "Simülasyon zamanı [s]" },
-    { name: "dt", description: "Entegrasyon adımı [s]" },
-    { name: "x_m, z_m", description: "Füze konumu [m]" },
+    { name: "t", description: "Simulasyon zamani [s]" },
+    { name: "dt", description: "Entegrasyon adimi [s]" },
+    { name: "x_m, z_m", description: "Fuze konumu [m]" },
     { name: "x_t, z_t", description: "Hedef konumu [m]" },
-    { name: "vx_m, vz_m", description: "Füze hız bileşenleri [m/s]" },
-    { name: "vx_t, vz_t", description: "Hedef hız bileşenleri [m/s]" },
-    { name: "V_m, V_t", description: "Hız büyüklükleri [m/s]" },
-    { name: "gamma_m, gamma_t", description: "Uçuş yolu açıları [rad]" },
-    { name: "dx, dz", description: "Bağıl konum: hedef eksi füze [m]" },
-    { name: "vrel_x, vrel_z", description: "Bağıl hız bileşenleri [m/s]" },
-    { name: "R, Rdot", description: "Menzil ve menzil türevi" },
-    { name: "lambda, lambda_dot", description: "LOS açısı ve dönüş hızı [rad, rad/s]" },
-    { name: "sigma, sigma_dot", description: "LOS ile füze gamma farkı [rad, rad/s]" },
-    { name: "closing_velocity", description: "Kapanma hızı [m/s]" },
-    { name: "xz_error / yanal_hata", description: "Yanal hata metriği [m]" },
-    { name: "energy, energy_error", description: "Özgül enerji ve hatası [J/kg]" },
-    { name: "az_prev, az_cmd_prev, az_actual_prev", description: "Bir önceki yanal ivme büyüklükleri [m/s^2]" },
-    { name: "gamma_cmd_prev, gamma_error_prev", description: "Bir önceki gamma komutu ve hata [rad]" },
+    { name: "vx_m, vz_m", description: "Fuze hiz bilesenleri [m/s]" },
+    { name: "vx_t, vz_t", description: "Hedef hiz bilesenleri [m/s]" },
+    { name: "V_m, V_t", description: "Hiz buyuklukleri [m/s]" },
+    { name: "gamma_m, gamma_t", description: "Ucus yolu acilari [rad]" },
+    { name: "dx, dz", description: "Bagil konum: hedef eksi fuze [m]" },
+    { name: "vrel_x, vrel_z", description: "Bagil hiz bilesenleri [m/s]" },
+    { name: "R, Rdot", description: "Menzil ve menzil turevi" },
+    { name: "lambda, lambda_dot", description: "LOS acisi ve donus hizi [rad, rad/s]" },
+    { name: "sigma, sigma_dot", description: "LOS ile fuze gamma farki [rad, rad/s]" },
+    { name: "closing_velocity", description: "Kapanma hizi [m/s]" },
+    { name: "xz_error / yanal_hata", description: "Yanal hata metrigi [m]" },
+    { name: "energy, energy_error", description: "Ozgul enerji ve hatasi [J/kg]" },
+    { name: "az_prev, az_cmd_prev, az_actual_prev", description: "Bir onceki yanal ivme buyuklukleri [m/s^2]" },
+    { name: "gamma_cmd_prev, gamma_error_prev", description: "Bir onceki gamma komutu ve hata [rad]" },
     { name: "N, k1, k2", description: "Algoritma ayar parametreleri" },
-    { name: "g, intercept_radius, gamma_tau, a_max", description: "Yardımcı sabitler" },
+    { name: "g, intercept_radius, gamma_tau, a_max", description: "Yardimci sabitler" },
   ];
 
   function isDigit(character) {
@@ -65,6 +67,7 @@
 
     while (index < expression.length) {
       const character = expression[index];
+      const twoChar = expression.slice(index, index + 2);
 
       if (/\s/.test(character)) {
         index += 1;
@@ -89,7 +92,7 @@
 
         const value = Number(expression.slice(index, end));
         if (!Number.isFinite(value)) {
-          throw new Error("Geçersiz sayı ifadesi bulundu.");
+          throw new Error("Gecersiz sayi ifadesi bulundu.");
         }
 
         tokens.push({ type: "number", value, start: index, end });
@@ -108,13 +111,19 @@
         continue;
       }
 
-      if ("+-*/^(),".includes(character)) {
+      if (["<=", ">=", "==", "!=", "&&", "||"].includes(twoChar)) {
+        tokens.push({ type: twoChar, value: twoChar, start: index, end: index + 2 });
+        index += 2;
+        continue;
+      }
+
+      if ("+-*/^(),?:!<>".includes(character)) {
         tokens.push({ type: character, value: character, start: index, end: index + 1 });
         index += 1;
         continue;
       }
 
-      throw new Error(`İzin verilmeyen karakter bulundu: "${character}"`);
+      throw new Error(`Izin verilmeyen karakter bulundu: "${character}"`);
     }
 
     return tokens;
@@ -140,7 +149,7 @@
       const token = currentToken();
 
       if (!token) {
-        throw new Error("İfade beklenirken satır sonuna ulaşıldı.");
+        throw new Error("Ifade beklenirken satir sonuna ulasildi.");
       }
 
       if (token.type === "number") {
@@ -153,20 +162,20 @@
         const identifier = token.value;
 
         if (currentToken()?.type === "(") {
-          consume("(", "Fonksiyon çağrısı için '(' bekleniyordu.");
+          consume("(", "Fonksiyon cagrisi icin '(' bekleniyordu.");
           const args = [];
 
           if (currentToken()?.type !== ")") {
             do {
-              args.push(parseAddSubtract());
+              args.push(parseConditional());
               if (currentToken()?.type !== ",") {
                 break;
               }
-              consume(",", "Argümanlar arasında ',' bekleniyordu.");
+              consume(",", "Argumanlar arasinda ',' bekleniyordu.");
             } while (true);
           }
 
-          consume(")", "Fonksiyon çağrısı kapatılmadı.");
+          consume(")", "Fonksiyon cagrisi kapatilmadi.");
           return { type: "CallExpression", callee: identifier, arguments: args };
         }
 
@@ -174,9 +183,9 @@
       }
 
       if (token.type === "(") {
-        consume("(", "Açılış parantezi bekleniyordu.");
-        const expressionNode = parseAddSubtract();
-        consume(")", "Parantez kapatılmadı.");
+        consume("(", "Acilis parantezi bekleniyordu.");
+        const expressionNode = parseConditional();
+        consume(")", "Parantez kapatilmadi.");
         return expressionNode;
       }
 
@@ -185,7 +194,7 @@
 
     function parseUnary() {
       const token = currentToken();
-      if (token?.type === "+" || token?.type === "-") {
+      if (token?.type === "+" || token?.type === "-" || token?.type === "!") {
         position += 1;
         return {
           type: "UnaryExpression",
@@ -246,18 +255,113 @@
       return node;
     }
 
-    const ast = parseAddSubtract();
+    function parseComparison() {
+      let node = parseAddSubtract();
+
+      while (["<", "<=", ">", ">="].includes(currentToken()?.type)) {
+        const operator = currentToken().type;
+        position += 1;
+        node = {
+          type: "BinaryExpression",
+          operator,
+          left: node,
+          right: parseAddSubtract(),
+        };
+      }
+
+      return node;
+    }
+
+    function parseEquality() {
+      let node = parseComparison();
+
+      while (currentToken()?.type === "==" || currentToken()?.type === "!=") {
+        const operator = currentToken().type;
+        position += 1;
+        node = {
+          type: "BinaryExpression",
+          operator,
+          left: node,
+          right: parseComparison(),
+        };
+      }
+
+      return node;
+    }
+
+    function parseLogicalAnd() {
+      let node = parseEquality();
+
+      while (currentToken()?.type === "&&") {
+        const operator = currentToken().type;
+        position += 1;
+        node = {
+          type: "BinaryExpression",
+          operator,
+          left: node,
+          right: parseEquality(),
+        };
+      }
+
+      return node;
+    }
+
+    function parseLogicalOr() {
+      let node = parseLogicalAnd();
+
+      while (currentToken()?.type === "||") {
+        const operator = currentToken().type;
+        position += 1;
+        node = {
+          type: "BinaryExpression",
+          operator,
+          left: node,
+          right: parseLogicalAnd(),
+        };
+      }
+
+      return node;
+    }
+
+    function parseConditional() {
+      const test = parseLogicalOr();
+
+      if (currentToken()?.type === "?") {
+        consume("?", "Kosullu ifade icin '?' bekleniyordu.");
+        const consequent = parseConditional();
+        consume(":", "Kosullu ifade icin ':' bekleniyordu.");
+        const alternate = parseConditional();
+        return {
+          type: "ConditionalExpression",
+          test,
+          consequent,
+          alternate,
+        };
+      }
+
+      return test;
+    }
+
+    const ast = parseConditional();
     if (position < tokens.length) {
-      throw new Error(`Beklenmeyen sembol kaldı: "${tokens[position].value}"`);
+      throw new Error(`Beklenmeyen sembol kaldi: "${tokens[position].value}"`);
     }
     return ast;
   }
 
-  function ensureFinite(value, message) {
+  function ensureFiniteNumber(value, message) {
     if (!Number.isFinite(value)) {
       throw new Error(message);
     }
     return value;
+  }
+
+  function isTruthy(value) {
+    return Math.abs(Number(value)) > BOOLEAN_EPSILON;
+  }
+
+  function booleanToNumber(value) {
+    return value ? 1 : 0;
   }
 
   function evaluateAst(node, scope) {
@@ -266,17 +370,42 @@
         return node.value;
       case "Identifier":
         if (Object.prototype.hasOwnProperty.call(scope, node.name)) {
-          return ensureFinite(scope[node.name], `Değişken sayısal değil: ${node.name}`);
+          return ensureFiniteNumber(scope[node.name], `Degisken sayisal degil: ${node.name}`);
         }
         if (Object.prototype.hasOwnProperty.call(CONSTANTS, node.name)) {
           return CONSTANTS[node.name];
         }
-        throw new Error(`Bilinmeyen değişken veya sabit: ${node.name}`);
+        throw new Error(`Bilinmeyen degisken veya sabit: ${node.name}`);
       case "UnaryExpression": {
         const argument = evaluateAst(node.argument, scope);
-        return node.operator === "-" ? -argument : argument;
+        switch (node.operator) {
+          case "+":
+            return argument;
+          case "-":
+            return -argument;
+          case "!":
+            return booleanToNumber(!isTruthy(argument));
+          default:
+            throw new Error(`Desteklenmeyen unary operator: ${node.operator}`);
+        }
       }
       case "BinaryExpression": {
+        if (node.operator === "&&") {
+          const left = evaluateAst(node.left, scope);
+          if (!isTruthy(left)) {
+            return 0;
+          }
+          return booleanToNumber(isTruthy(evaluateAst(node.right, scope)));
+        }
+
+        if (node.operator === "||") {
+          const left = evaluateAst(node.left, scope);
+          if (isTruthy(left)) {
+            return 1;
+          }
+          return booleanToNumber(isTruthy(evaluateAst(node.right, scope)));
+        }
+
         const left = evaluateAst(node.left, scope);
         const right = evaluateAst(node.right, scope);
 
@@ -288,35 +417,62 @@
           case "*":
             return left * right;
           case "/":
-            return ensureFinite(left / right, "Sıfıra bölme veya sayısal taşma oluştu.");
+            return ensureFiniteNumber(left / right, "Sifira bolme veya sayisal tasma olustu.");
           case "^":
-            return ensureFinite(Math.pow(left, right), "Üs alma işlemi geçersiz sonuç üretti.");
+            return ensureFiniteNumber(Math.pow(left, right), "Us alma islemi gecersiz sonuc uretti.");
+          case "<":
+            return booleanToNumber(left < right);
+          case "<=":
+            return booleanToNumber(left <= right);
+          case ">":
+            return booleanToNumber(left > right);
+          case ">=":
+            return booleanToNumber(left >= right);
+          case "==":
+            return booleanToNumber(left === right);
+          case "!=":
+            return booleanToNumber(left !== right);
           default:
-            throw new Error(`Desteklenmeyen operatör: ${node.operator}`);
+            throw new Error(`Desteklenmeyen operator: ${node.operator}`);
         }
+      }
+      case "ConditionalExpression": {
+        const test = evaluateAst(node.test, scope);
+        return isTruthy(test)
+          ? evaluateAst(node.consequent, scope)
+          : evaluateAst(node.alternate, scope);
       }
       case "CallExpression": {
         const definition = FUNCTION_DEFINITIONS[node.callee];
         if (!definition) {
-          throw new Error(`İzin verilmeyen fonksiyon: ${node.callee}`);
+          throw new Error(`Izin verilmeyen fonksiyon: ${node.callee}`);
         }
 
         if (node.arguments.length < definition.minArgs || node.arguments.length > definition.maxArgs) {
-          throw new Error(`Fonksiyon argüman sayısı hatalı: ${node.callee}`);
+          throw new Error(`Fonksiyon arguman sayisi hatali: ${node.callee}`);
+        }
+
+        if (definition.lazy && node.callee === "if") {
+          const condition = evaluateAst(node.arguments[0], scope);
+          const selectedBranch = isTruthy(condition) ? node.arguments[1] : node.arguments[2];
+          return ensureFiniteNumber(
+            evaluateAst(selectedBranch, scope),
+            "if() secilen dalda sonlu bir sayisal deger uretmedi.",
+          );
         }
 
         const args = node.arguments.map((argumentNode) => evaluateAst(argumentNode, scope));
-        return ensureFinite(definition.fn(...args), `Fonksiyon geçersiz sonuç üretti: ${node.callee}`);
+        return ensureFiniteNumber(definition.fn(...args), `Fonksiyon gecersiz sonuc uretti: ${node.callee}`);
       }
       default:
-        throw new Error("İfade ağacı çözümlenemedi.");
+        throw new Error("Ifade agaci cozumlenemedi.");
     }
   }
 
   function createExpressionEvaluator(expression) {
     const trimmed = expression.trim();
     if (!trimmed) {
-      throw new Error("Formül boş bırakılamaz.");
+      throw new Error("Formul bos birakilamaz.");
     }
 
     const ast = parseExpression(tokenize(trimmed));
@@ -326,7 +482,7 @@
       ast,
       evaluate(scope) {
         const value = evaluateAst(ast, scope);
-        return ensureFinite(value, "Formül sonlu bir sayısal değer üretmedi.");
+        return ensureFiniteNumber(value, "Formul sonlu bir sayisal deger uretmedi.");
       },
     };
   }

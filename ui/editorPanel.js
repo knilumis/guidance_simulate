@@ -126,7 +126,6 @@
       this.expressionField = document.getElementById("guidanceExpression");
       this.modeSelect = document.getElementById("editorOutputMode");
       this.highlightEl = document.getElementById("guidanceHighlight");
-      this.tooltipEl = document.getElementById("editorTooltip");
       this.autocompleteEl = document.getElementById("editorAutocomplete");
       this.unitWarningsEl = document.getElementById("editorUnitWarnings");
       this.statusEl = document.getElementById("formulaStatus");
@@ -476,18 +475,6 @@
     }
 
     refreshContextualHelp() {
-      const activeSymbol = this.getActiveSymbol();
-      if (activeSymbol && this.tooltipEl) {
-        this.tooltipEl.innerHTML = `
-          <strong>${escapeHtml(activeSymbol.name)}</strong>
-          <span>${escapeHtml(activeSymbol.description)}</span>
-          <small>${escapeHtml(activeSymbol.unit || "Birim bilgisi yok")}</small>
-        `;
-        this.tooltipEl.classList.remove("is-hidden");
-      } else {
-        this.tooltipEl?.classList.add("is-hidden");
-      }
-
       this.updateUnitWarnings();
     }
 

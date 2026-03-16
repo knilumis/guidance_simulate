@@ -74,6 +74,33 @@
     }, null);
   }
 
+  const LIVE_UPDATE_PARAMS = new Set([
+    "outputMode",
+    "dt",
+    "tMax",
+    "interceptRadius",
+    "maxAccel",
+    "speedModel",
+    "N",
+    "k1",
+    "k2",
+    "gammaTau",
+    "gammaCmdLimitDeg",
+    "gammaCmdRateLimitDeg",
+    "targetMotionModel",
+    "targetSinAmplitude",
+    "targetSinFrequency",
+    "targetTurnRateDeg",
+    "targetEvasionRange",
+    "targetWaypointX",
+    "targetWaypointZ",
+    "targetCommandExpression",
+    "thrust",
+    "missileMass",
+    "referenceArea",
+    "dragCoeff",
+  ]);
+
   function bootstrap() {
     if (
       !GUIDANCE_EXAMPLES
@@ -162,6 +189,7 @@
       },
       themeId: initialSettings.theme,
     };
+    let liveParamUpdateTimer = null;
 
     function getRawValues() {
       return {
@@ -326,6 +354,17 @@
       });
     }
 
+    function scheduleLiveParameterUpdate(changedKey) {
+      if (!LIVE_UPDATE_PARAMS.has(changedKey) || !appState.simulationResult) {
+        return;
+      }
+
+      window.clearTimeout(liveParamUpdateTimer);
+      liveParamUpdateTimer = window.setTimeout(() => {
+        continueSimulationFromCurrentState({ keepPlaying: scene.isPlaying() });
+      }, 140);
+    }
+
     function executeSimulation(options = {}) {
       const { autoplay = true, resetOnly = false } = options;
       const validation = ensureSimulationInputs();
@@ -486,6 +525,7 @@
       validateTargetCommand({ ...values, ...appState.viewSettings, themeId: appState.themeId }, { silent: true });
       updateRunState();
       setDirty();
+      scheduleLiveParameterUpdate(changedKey);
 
       if (analysisPanel.isOpen?.()) {
         analysisPanel.scheduleLiveRun("sweep");
@@ -535,6 +575,24 @@
           analysisPanel.scheduleLiveRun("sweep");
         }
         setDirty();
+      },
+    });
+
+    guidePanel.bind({
+      onPrepareTutorial: () => {
+        scene.pause();
+        const tutorialScenario = cloneScenario(DEFAULT_SCENARIO);
+        tutorialScenario.missileSpeed = 250;
+        tutorialScenario.targetMotionModel = "linear";
+        tutorialScenario.targetTurnRateDeg = 12;
+        tutorialScenario.N = 3;
+        tutorialScenario.outputMode = "az_demand";
+        controlPanel.setValues(tutorialScenario);
+        applyExample("PNG", { includeScenario: false });
+        syncEditorMode();
+        ensureSimulationInputs({ silent: true });
+        setDirty("Öğren modu için başlangıç senaryosu yüklendi.");
+        refreshSceneAndPlotsLayout();
       },
     });
 

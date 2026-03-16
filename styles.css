@@ -513,9 +513,33 @@ h3 {
 .control-scroll {
   display: grid;
   gap: 8px;
-  padding-right: 0;
-  overflow: hidden;
+  height: 100%;
+  max-height: 100%;
+  padding-right: 4px;
+  overflow-y: scroll;
+  overflow-x: hidden;
   align-content: start;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb-start) var(--scroll-track);
+  overscroll-behavior: contain;
+}
+
+.control-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.control-scroll::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+.control-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--scroll-thumb-start), var(--scroll-thumb-end));
+  border: 2px solid var(--scroll-track);
+}
+
+.control-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent), var(--scroll-thumb-start));
 }
 
 .panel-heading,
@@ -658,9 +682,40 @@ button.active {
 .icon-button {
   min-width: 42px;
   width: 42px;
+  height: 42px;
   padding: 0;
   font-size: 1rem;
   line-height: 1;
+}
+
+.icon-button svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+  margin: 0 auto;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.icon-button-bug {
+  color: var(--accent);
+  border-color: var(--accent-outline-strong);
+  background:
+    radial-gradient(circle at 50% 32%, var(--accent-fill-soft), transparent 58%),
+    linear-gradient(180deg, var(--surface-bg-top), var(--surface-bg-bottom));
+  box-shadow:
+    inset 0 0 0 1px var(--accent-fill-soft),
+    0 0 18px var(--accent-fill-soft);
+}
+
+.icon-button-bug:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow:
+    inset 0 0 0 1px var(--accent-fill),
+    0 0 22px var(--accent-fill);
 }
 
 .settings-menu {
@@ -818,12 +873,50 @@ button.active {
   text-decoration: underline;
 }
 
+.bug-meta-title {
+  margin-top: 4px;
+}
+
 .action-row,
 .scene-controls,
 .plot-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.scene-controls {
+  align-items: center;
+  gap: 6px;
+}
+
+.scene-controls > button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 0.74rem;
+}
+
+.scene-controls .settings-menu {
+  display: flex;
+  align-items: center;
+}
+
+.scene-controls .scene-icon-stack {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scene-controls .icon-button {
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+  font-size: 0.9rem;
+}
+
+.scene-controls .icon-button svg {
+  width: 15px;
+  height: 15px;
 }
 
 .control-panel {
@@ -979,7 +1072,7 @@ button.active {
 
 .formula-editor-surface {
   position: relative;
-  min-height: 4.2rem;
+  min-height: 14.2rem;
   border: 1px solid var(--border-mid);
   background: var(--field-bg);
   overflow: hidden;
@@ -989,8 +1082,8 @@ button.active {
 #guidanceExpression {
   margin: 0;
   width: 100%;
-  min-height: 4.2rem;
-  height: 4.2rem;
+  min-height: 14.2rem;
+  height: 14.2rem;
   padding: 8px 10px;
   font: inherit;
   font-size: 0.82rem;
@@ -1229,6 +1322,28 @@ button.active {
 }
 
 .legend-disclosure .legend-grid::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--scroll-thumb-start), var(--scroll-thumb-end));
+  border: 1px solid var(--border-strong);
+}
+
+.legend-disclosure .formula-example-grid {
+  margin-top: 0;
+  padding: 0 12px 12px;
+  max-height: min(32vh, 280px);
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb-start) var(--scroll-track);
+}
+
+.legend-disclosure .formula-example-grid::-webkit-scrollbar {
+  width: 10px;
+}
+
+.legend-disclosure .formula-example-grid::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+.legend-disclosure .formula-example-grid::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, var(--scroll-thumb-start), var(--scroll-thumb-end));
   border: 1px solid var(--border-strong);
 }
@@ -1593,6 +1708,17 @@ button.active {
   gap: 6px;
 }
 
+.guide-learn-button {
+  width: fit-content;
+  padding: 8px 12px;
+  border-color: var(--accent-outline-strong);
+  background: linear-gradient(135deg, rgba(57, 255, 114, 0.22), rgba(20, 90, 43, 0.22));
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .guide-step-counter {
   margin: 0;
   color: var(--accent);
@@ -1627,6 +1753,94 @@ button.active {
 .guide-arrow {
   font-size: 1rem;
   font-weight: 700;
+}
+
+.learn-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  pointer-events: none;
+}
+
+.learn-overlay.is-hidden {
+  display: none;
+}
+
+.learn-highlight {
+  position: fixed;
+  z-index: 1;
+  border: 2px solid #39ff72;
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.68),
+    0 0 18px rgba(57, 255, 114, 0.88),
+    inset 0 0 18px rgba(57, 255, 114, 0.22);
+  background: rgba(57, 255, 114, 0.06);
+  transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease, opacity 0.18s ease;
+  pointer-events: none;
+}
+
+.learn-card {
+  position: fixed;
+  z-index: 2;
+  width: min(360px, calc(100vw - 24px));
+  min-height: 260px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(57, 255, 114, 0.42);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.98), rgba(0, 0, 0, 0.94));
+  box-shadow: 0 0 0 1px rgba(57, 255, 114, 0.12), 0 18px 40px rgba(0, 0, 0, 0.46);
+  pointer-events: auto;
+}
+
+.learn-progress {
+  margin: 0;
+  color: #39ff72;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.learn-title {
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.learn-body,
+.learn-requirement,
+.learn-status {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.learn-body {
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.learn-requirement {
+  padding: 10px 12px;
+  border: 1px solid rgba(57, 255, 114, 0.22);
+  background: rgba(57, 255, 114, 0.08);
+  color: #d9ffe4;
+  font-size: 0.74rem;
+}
+
+.learn-requirement.is-hidden {
+  display: none;
+}
+
+.learn-status {
+  color: var(--text-soft);
+  font-size: 0.72rem;
+}
+
+.learn-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
 }
 
 .report-overlay {
